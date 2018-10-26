@@ -2,9 +2,10 @@
 
 # $1 = vcf file, $2 = output file, $3 = ped file
 
-PSAP_PATH=/home/local/ARCS/nz2274/Application/ #INSERT PATH TO PSAP DIRECTORY HERE eg. /scratch/dclab/
-ANNOVAR_PATH=/home/local/users/jw/software_packages/annovar/ #/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
-ANNOVAR_DB=/home/local/ARCS/nz2274/Application/annovar/
+#PSAP_PATH=/home/local/ARCS/nz2274/Application/ #INSERT PATH TO PSAP DIRECTORY HERE eg. /scratch/dclab/
+
+ANNOVAR_PATH=$ANNOVAR #/home/local/users/jw/software_packages/annovar/ #/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
+ANNOVAR_DB=$ANNHDB #/home/local/ARCS/nz2274/Application/annovar/
 curpath=$(pwd)
 echo $PWD
 echo "PSAP path is "${PSAP_PATH}"psap/"

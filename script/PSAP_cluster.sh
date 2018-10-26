@@ -1,15 +1,24 @@
-cd /home/local/ARCS/nz2274/Freeze8/
-ANNOVAR_PATH=$ANNOVAR #/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
-ANNOVAR_DB=$ANNHDB #/home/local/ARCS/nz2274/Application/annovar/
+#cd /home/local/ARCS/nz2274/Freeze8/
+echo "input: vcf.gz pedigree"
+if [ "$#" -lt 2 ];then
+   echo "input:vcf.gz pedigree"
+   exit
+fi
+fvcf=$1 #"/home/local/ARCS/nz2274/Freeze8/Columbia_Freeze_Eight.NF.pVCF.vcf.gz"
+fped=$2 #"/home/local/ARCS/nz2274/Freeze8/RGN8.sampleHas.ped"
+script_folder=$PSAP_PATH #/home/nz2274/Application/PSAP_cluster/  #"/home/local/ARCS/nz2274/Freeze8/script/"
+
+
+
+
+
+#ANNOVAR_PATH=$ANNOVAR #/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
+#ANNOVAR_DB=$ANNHDB #/home/local/ARCS/nz2274/Application/annovar/
 echo  "input example: file.vcf.gz file.ped [1] [$liftover/hg38ToHg19.nochr.over.chain.gz]"
 if [ "$#" -lt 2 ]; then
 	echo  "input example: file.vcf.gz file.ped [1] [$liftover/hg38ToHg19.nochr.over.chain.gz]"
 	exit;
 fi
-
-fvcf=$1 #"/home/local/ARCS/nz2274/Freeze8/Columbia_Freeze_Eight.NF.pVCF.vcf.gz"
-fped=$2 #"/home/local/ARCS/nz2274/Freeze8/RGN8.sampleHas.ped"
-script_folder="/home/local/ARCS/nz2274/Freeze8/script/"
 
 if [ "$#" -eq 3 ]; then
 	
@@ -51,11 +60,11 @@ function annotation ()
 
    f=$1
 	OUTFILE=$2
-	perl ${ANNOVAR_PATH}convert2annovar.pl -format vcf4old $f -outfile annotated/${OUTFILE}.avinput -includeinfo 2> annotated/$OUTFILE.convert.log
-	echo "perl ${ANNOVAR_PATH}table_annovar.pl ${OUTFILE}.avinput -remove -outfile annotated/${OUTFILE}.avinput ${ANNOVAR_DB}humandb/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo  > nohup.$i.anno.log"
+	perl ${ANNOVAR}convert2annovar.pl -format vcf4old $f -outfile annotated/${OUTFILE}.avinput -includeinfo 2> annotated/$OUTFILE.convert.log
+	echo "perl ${ANNOVAR}table_annovar.pl ${OUTFILE}.avinput -remove -outfile annotated/${OUTFILE}.avinput ${ANNHDB}/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo  > nohup.$i.anno.log"
 	#
 	#exit
-	perl ${ANNOVAR_PATH}table_annovar.pl ${OUTFILE}.avinput -remove -outfile annotated/${OUTFILE}.avinput ${ANNOVAR_DB}humandb/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo  > nohup.$i.anno.log
+	perl ${ANNOVAR}table_annovar.pl ${OUTFILE}.avinput -remove -outfile annotated/${OUTFILE}.avinput ${ANNHDB}/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo  > nohup.$i.anno.log
 
 
 }
@@ -121,9 +130,9 @@ for n in $(eval echo {1..$nrow})
 do
 if  [ $(( n % 20 )) -ne 0 ] ; then
 
-nohup bash $script_folder/script/call.sample.sh $n $input $tped &
+nohup bash $script_folder/script/call.sample.sh $n $input $fped &
 else 
-nohup bash $script_folder/script/call.sample.sh $n $input $tped  
+nohup bash $script_folder/script/call.sample.sh $n $input $fped  
 
 
 fi
@@ -131,4 +140,4 @@ fi
 done 
 
 wait
-nohup bash $script_folder/script/PSAP_annotate.sh  $rawvcf $rawped  > nohup.anno.log &
+nohup bash $script_folder/script/PSAP_annotate.sh  $fvcf $fped  > nohup.anno.log &

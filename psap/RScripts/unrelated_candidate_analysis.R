@@ -40,6 +40,7 @@ for(i in 1:length(af)){
   dat<-read.table(file=paste(cohort.id,"/",af[i],"_popStat.txt",sep=""),sep="\t",header=T,stringsAsFactors=F,check.names=F,comment.char = "")
   dat$vid = paste(dat$Chr, dat$Start, dat$Alt,sep=":")
   dat$pid = af[i]
+  names(dat)[which(names(dat)==af[i])]<-"pid.geno"
   print(af[i])
   
   for(m in 1:length(models)){

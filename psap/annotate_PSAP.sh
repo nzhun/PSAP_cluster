@@ -2,7 +2,7 @@
 # $2 = PED file name (eg. FAMILY.ped)
 
 #module load R
-PSAP_PATH=/home/local/ARCS/nz2274/Application/ #INSERT PATH TO PSAP DIRECTORY HERE eg. "/scratch/dclab/"
+#PSAP_PATH=/home/local/ARCS/nz2274/Application/ #INSERT PATH TO PSAP DIRECTORY HERE eg. "/scratch/dclab/"
 echo "start"$1"\t"$2
 if [ $# == 2 ]
 then  

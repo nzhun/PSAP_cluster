@@ -8,23 +8,25 @@ adir = args[3]
 prefix<-args[1]
 fam.id<-dirname(args[1]) #strsplit(args[1],".avinput",fixed=T)
 ped = read.table(args[4],stringsAsFactors=F,skip = 1,header = F,sep="\t")
-
 ## Individual ID - ASSUMES only one individual is being analyzed/annotated
+
 indv.id = args[2]
-print(args[2])
 
 ## at some point this may be changed to an argument based system but for now it's hard coded
 score = "CADD_Phred"
 scale = seq(0,70,0.05)
+print(paste(adir,"psap/lookups/lookup_genes.txt",sep=""))
 lookup.genes = scan(file=paste(adir,"psap/lookups/lookup_genes.txt",sep=""),"character")
 
 ## READ IN AND FORMAT DATA
-exome.raw<-read.table(file=paste(prefix,".hg19_multianno.txt",sep=""),sep="\t",stringsAsFactors=F,skip=1)
+print(paste(prefix,".hg19_multianno.txt",sep=""))
+exome.raw<-read.table(file=paste(prefix,".hg19_multianno.txt",sep=""),sep="\t",comment.char="",quote="", stringsAsFactors=F,skip=1)
+print ("data")
 header<-read.table(file=paste(prefix,".hg19_multianno.txt",sep=""),sep="\t",stringsAsFactors=F,nrow=1)
-print(paste(prefix,".header",sep=""))
-vcf.header<-read.table(file=paste(prefix,".header",sep=""),sep="\t",stringsAsFactors=F,comment.char="@")
+vcf.header<-read.table(file=paste(prefix,".header",sep=""),sep="\t",stringsAsFactors=F,comment.char="@",strip.white = T)
 stopifnot(indv.id %in% vcf.header) # CHECKS THAT SPECIFIED INDIVIDUAL IS IN THE DATA
 n.annos=ncol(header)
+vcf.header=vcf.header[which(vcf.header!="NA")]
 names(exome.raw)=c(header[-n.annos],vcf.header)
 
 if(any(grepl("cadd",names(exome.raw))) == T){
@@ -59,13 +61,16 @@ if(ped$V5[which(ped$V2 == indv.id)] == 2){
 }
 print(dim(exome.raw))
 
+
+maf=names(exome.raw)[grep("ExAC_ALL|mac63kFreq_ALL",names(exome.raw),ignore.case=T)[1]]
+
 ### CLEAN DATA: 1) REMOVE BLACKLIST GENES, 2) REMOVE VARIANTS WITH AF DISCREPANCIES, 3) REMOVE GENES NOT INCLUDED IN LOOKUP TABLES, 4) REMOVE REGIONS THAT ARE NOT COVERED IN ExAC, 5) REMOVE VARIANTS THAT DO NOT PASS TRANCHE FILTER 
 # 1) REMOVE BLACKLISTED GENES-- I think it would be better to remove and output these genes to a separate file (like the missing data).  I also think this should include all low coverage genes because it's more generic.
 bl<-scan(paste(adir,"psap/lookups/blacklist_122814.txt",sep=""),what="character")
 bl.remove = unique(c(which(exome.raw$Gene.wgEncodeGencodeBasicV19 %in% bl),grep("^HLA", exome.raw$Gene.wgEncodeGencodeBasicV19), grep("^MUC", exome.raw$Gene.wgEncodeGencodeBasicV19), grep("^KRT", exome.raw$Gene.wgEncodeGencodeBasicV19),grep("^OR", exome.raw$Gene.wgEncodeGencodeBasicV19), grep("^TRBV", exome.raw$Gene.wgEncodeGencodeBasicV19)))
 
 # 2) REMOVE AF DISCREPANCIES (ANYTHING THAT IS MISSING IN ExAC BUT PRESENT IN 1000GP OR ESP AT GREATER THAN 5% FREQUENCY
-af.remove = which(is.na(exome.raw$ExAC_ALL) == T & exome.raw[,"1000g2014sep_all"] > 0.05 | is.na(exome.raw$ExAC_ALL) == T & exome.raw$esp6500si_all > 0.05)
+af.remove = which(is.na(exome.raw[,maf]) == T & exome.raw[,"1000g2014sep_all"] > 0.05 | is.na(exome.raw[,maf]) == T & exome.raw$esp6500si_all > 0.05)
 
 # 3) REMOVE GENES NOT IN LOOKUP TABLES
 lookup.remove = which(! exome.raw$Gene.wgEncodeGencodeBasicV19 %in% lookup.genes)
@@ -92,7 +97,7 @@ exome[,score][indels] = lookup.lof[gene.index,2]
 info<-exome[which(exome$FILTER=="PASS" & is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
             c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
               "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-              "ExAC_ALL","1000g2014sep_all","esp6500si_all","Alt",score,indv.id)]
+             maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id)]
 
 ## OUTPUT MISSING DATA/DATA NOT INCLUDED IN ANY OF THE ABOVE ANALYSES
 id.raw = paste(exome.raw$Chr,exome.raw$Start,exome.raw$Ref,exome.raw$Alt,sep=":")
@@ -100,7 +105,7 @@ id.final = paste(info$Chr,as.numeric(info$Start),info$Ref,info$Alt,sep=":")
 missing<-unique(exome.raw[which(! id.raw %in% id.final),
   c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19",
     "Func.wgEncodeGencodeBasicV19","ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-    "ExAC_ALL","1000g2014sep_all","esp6500si_all","Alt",score,indv.id)])
+    maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id)])
 
 rm(list=c("keep","exome","tmp.exome","exome.raw","af.remove","lookup.remove","bl.remove","bl","lookup.genes"))
 class(info[,score]) = "numeric"

@@ -1,35 +1,51 @@
-	PSAP_PATH=/Users/nazhu/Documents/GitHub/PSAP_cluster/ #INSERT PATH TO PSAP DIRECTORY HERE eg. /scratch/dclab/
-	ANNOVAR_PATH=/home/local/ARCS/nz2274/Application/annovar/;
+	#PSAP_PATH=/home/nz2274/Application/PSAP_cluster/ #/Users/nazhu/Documents/GitHub/PSAP_cluster/ #INSERT PATH TO PSAP DIRECTORY HERE eg. /scratch/dclab/
+#	ANNOVAR_PATH=$ANNOVAR #/home/local/ARCS/nz2274/Application/annovar/;
+	echo "input nrow input.hg19_multianno.txt input.ped"
 	tped=$3; #"RGN.individual.ped"
 	input=$2; #"../annotated/Columbia_Freeze_Eight.hg19.avinput.hg19_multianno.txt"
 	 N=$1;
-   fam=0;
-	sped="annotated/$N.$fam.ped"
+   	fam=0;
+	bid=$(basename $tped|sed 's/\.ped//g')
+	sped="annotated/$N.$fam.$bid.ped"
 	head -n 1 $tped|cut -f 1-6  > $sped
 	head -n $N $tped|tail -1 |cut -f 1-6 >> $sped
 	fid=$(cut -f 1 $sped|tail -n1)
 	proband=$(egrep -v '^#' $sped|cut -f 2|tail -n1)
 	father=$(egrep -v '^#' $sped|cut -f 3|egrep -v '^0$|^X$|^-$' -i|tail -n1)
+	rs=$(head -n 1 $input|egrep "$father")
+	if [ -z "$rs" ]; then
+ 		father=""
+		echo "$father does not include in the vcf"
+	fi
 	mother=$(egrep -v '^#' $sped|cut -f 4|egrep -v '^0$|^X$|^-$' -i|tail -n 1)
+	rs=$(head -n 1 $input|egrep "$mother")
+	if [ -z "$rs" ]; then
+ 		mother=""
+		echo "$mother does not include in the vcf"
+	fi
 
 	if [ ! -z "$father"  ];
 	then 
 	echo -e "$fid\t$father\tX\tX\t1\t1" >> $sped
+	echo $father
 	fam=$(( fam + 1))
 	fi
 	if [ ! -z "$mother" ]; then
 	echo -e "$fid\t$mother\tX\tX\t2\t1" >> $sped
 	fam=$(( fam + 1))
+	echo $mother
 	fi
-	
+	mv $sped annotated/$N.$fam.$fid.ped
+	sped="annotated/$N.$fam.$fid.ped"	
 	echo $proband"\t"$father"\t"$mother
-	echo "head -n 1 $input| awk -v p=$proband -v f=$father -v m=$mother  'BEGIN{FS=\"\t\";OFS=\"\t\"}{pc=0;fc=0;mc=0;for(i=26;i<NF+1;i++){if(\$i==p){pc=i} if(\$i==f){fc=i} if(\$i==m){mc=i} } o=pc; if(fc!=0){o=o\",\"fc}if(mc!=0){o=o\",\"mc} print o}'"
-	fcut=$(head -n 1 $input| awk -v p=$proband -v f=$father -v m=$mother  'BEGIN{FS="\t";OFS="\t"}{pc=0;fc=0;mc=0;for(i=26;i<NF+1;i++){if($i==p){pc=i} if($i==f){fc=i} if($i==m){mc=i} } o=pc; if(fc!=0){o=o","fc}if(mc!=0){o=o","mc} print o}')
+	#echo "head -n 1 $input| awk -v p=$proband -v f=$father -v m=$mother  'BEGIN{FS=\"\t\";OFS=\"\t\"}{pc=0;fc=0;mc=0;for(i=26;i<NF+1;i++){if(\$i==p){pc=i} if(\$i==f){fc=i} if(\$i==m){mc=i} } o=pc; if(fc!=0){o=o\",\"fc}if(mc!=0){o=o\",\"mc} print o}'"
+	fcut=$(head -n 1 $input| awk -v p=$proband -v f=$father -v m=$mother  'BEGIN{FS="\t";OFS="\t"}{pc=0;fc=0;mc=0;for(i=26;i<NF+1;i++){if($i==p){pc=i} if(length(f)>1 && $i==f){fc=i} if(length(m)>1 && $i==m){mc=i} } o=pc; if(fc!=0){o=o","fc}if(mc!=0){o=o","mc} print o}')
 	echo "$fcut found"
 	head -n 1 $input|cut -f 17-25,$fcut > annotated/$proband.avinput.header 
 	pcol=$(awk -v p=$proband   'BEGIN{FS="\t";OFS="\t"}{pc=0;fc=0;mc=0;for(i=10;i<NF+1;i++){if($i==p){pc=i-9} } print pc}' annotated/$proband.avinput.header)
 	awk -v p=$pcol 'BEGIN{FS="\t";OFS="\t"}{if(p>1){t=$(9+p);$(9+p)=$10;$10=t;}print}' annotated/$proband.avinput.header > annotated/$proband.avinput.header.tmp
 	mv annotated/$proband.avinput.header.tmp annotated/$proband.avinput.header
+	sed -i 's/\t$//g' annotated/$proband.avinput.header
 	echo "proband is the "$pcol" column"
 	echo "header prepared"
 

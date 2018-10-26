@@ -1,6 +1,6 @@
 # Initialization script that downloads all necessary annotation tables prior to running the PSAP pipeline for the first time
 ANNOVAR_PATH=$ANNOVAR #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
-PSAP_PATH=$PSAP #INSERT PATH TO PSAP DIRECTORY HERE eg. /scratch/dclab/
+#PSAP_PATH=$PSAP #INSERT PATH TO PSAP DIRECTORY HERE eg. /scratch/dclab/
 
 #cd $ANNOVAR_PATH
 # Download Sep 2014 1000 Genomes allele frequencies from ANNOVAR

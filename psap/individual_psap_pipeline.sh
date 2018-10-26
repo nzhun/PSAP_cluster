@@ -1,11 +1,11 @@
 #!/bin/bash
 # Requires vcf file as input
 # $1 = vcf file, $2 = output file, $3 = ped file
-PSAP_PATH=/home/local/ARCS/nz2274/Application/ #INSERT PATH TO PSAP DIRECTORY HERE eg. /scratch/dclab/
+#PSAP_PATH=/home/local/ARCS/nz2274/Application/ #INSERT PATH TO PSAP DIRECTORY HERE eg. /scratch/dclab/
 #ANNOVAR_PATH=/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
-ANNOVAR_PATH=/home/local/users/jw/software_packages/annovar/ #/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
-ANNOVAR_DB=/home/local/ARCS/nz2274/Application/annovar/
-
+ANNOVAR_PATH=$ANNOVAR #/home/local/users/jw/software_packages/annovar/ #/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
+ANNOVAR_DB=$ANNHDB #/home/local/ARCS/nz2274/Application/annovar/
+echo $ANNOVAR_DB
 curpath=$(pwd)
 echo $PWD
 ~
@@ -28,9 +28,10 @@ then
         MISSING=0
         for FILE in "hg19_ALL.sites.2014_09.txt" "hg19_cadd.txt" "hg19_esp6500si_all.txt" "hg19_snp137.txt" "hg19_wgEncodeGencodeBasicV19Mrna.fa" "hg19_wgEncodeGencodeBasicV19.txt" "hg19_mac63kFreq_ALL.txt"
         do
-                if [ ! -f ${ANNOVAR_DB}humandb/$FILE ]
+                if [ ! -f ${ANNOVAR_DB}/$FILE ]
                 then
                         MISSING=$(( $MISSING+1 ))
+			echo "annotation $FILE missing"
                 fi
         done
 # If any of the required annotation files are missing, exit and print error  message
@@ -67,7 +68,7 @@ if [ ! -e $curpath/annotated/${OUTFILE}.avinput.hg19_multianno.txt  ]; then
 # Annotate with ANNOVAR
 	echo "PROGRESS: Annotating data with ANNOVAR"
 	#perl ${ANNOVAR_PATH}table_annovar.pl ${OUTFILE}.avinput -remove -outfile annotated/${OUTFILE}.avinput ${ANNOVAR_DB}humandb/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo
-	perl ${ANNOVAR_PATH}table_annovar.pl $curpath/${OUTFILE}.avinput -remove -outfile $curpath/annotated/${OUTFILE}.avinput ${ANNOVAR_DB}humandb/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo
+	perl ${ANNOVAR_PATH}table_annovar.pl $curpath/${OUTFILE}.avinput -remove -outfile $curpath/annotated/${OUTFILE}.avinput ${ANNOVAR_DB}/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo
 else 
     echo "$curpath/annotated/${OUTFILE}.avinput.hg19_multianno.txt existed!"
 fi
