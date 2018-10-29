@@ -23,7 +23,6 @@ empty<-c("x","-","0","X")
 exome.raw<-read.table(file=paste(fam.id,".avinput.hg19_multianno.txt",sep=""),sep="\t",stringsAsFactors=F,skip=1,quote = "",check.names = F,skipNul = T,comment.char = "")  #"annotated/",
 
 print(paste(fam.id,".avinput.hg19_multianno.txt",sep=""))
-print(paste(fam.id,".avinput.header",sep=""))
 header<-read.table(file=paste(fam.id,".avinput.hg19_multianno.txt",sep=""),sep="\t",stringsAsFactors=F,nrow=1) #"annotated/",
 vcf.header<-read.table(file=paste(fam.id,".avinput.header",sep=""),sep="\t",stringsAsFactors=F,comment.char="@")
 n.annos=ncol(header)
@@ -33,7 +32,6 @@ names(exome.raw)=c(header[-n.annos],vcf.header)
 maf=names(exome.raw)[grep("ExAC_ALL|mac63kFreq_ALL",names(exome.raw),ignore.case=T)[1]]
 fam<-read.table(file=fped,header=F,stringsAsFactors=F,sep="\t",skip = 1,fill = T)
 fam<- fam[which(fam$V2%in% names(exome.raw)),]
-print(fam$V2)
 if(dim(fam)[1]<1){stop("make sure individual IDs are as the same as ped file\n or at least one affected individual in ped file!\n")}
 if(length(which(fam$V6==2)) <1){stop("at least one affected individual in ped file!\n")}
 n.fam<-nrow(fam)
@@ -215,14 +213,7 @@ gene.index = as.integer(factor(exome$Gene.wgEncodeGencodeBasicV19[indels],levels
 exome[,score][indels] = lookup.lof[gene.index,2]
 
 # 6) REMOVE VARIANTS THAT DO NOT PASS QUALITY FILTER OR HAVE MISSING pCADD SCORES
-print(score)
-print(parents)
-print("names\n")
-print(names(exome))
 print ("output\n")
-print( c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
-              "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-              maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents))
 info<-exome[which(is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
             c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
               "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",

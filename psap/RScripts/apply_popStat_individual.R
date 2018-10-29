@@ -82,9 +82,12 @@ missing.remove = which(apply(exome.raw[af_index],1,function(row) return(sum(is.n
 rms<-c(bl.remove,af.remove,lookup.remove,missing.remove)
 if(length(rms) > 0){
   tmp.exome = exome.raw[-unique(rms),]
+}else{
+tmp.exome=exome.raw
 }
 # 4a) REMOVE REGIONS NOT COVERED IN ExAC - JUST RETAINING PROTEIN CODING SITES AND SPLICE SITES
 keep<-unique(c(grep("splic",tmp.exome$Func.wgEncodeGencodeBasicV19),which(is.na(tmp.exome$ExonicFunc.wgEncodeGencodeBasicV19)==FALSE)))
+#print(keep)
 exome<-tmp.exome[keep,]
 
 # 4b) SCORE INDELS
