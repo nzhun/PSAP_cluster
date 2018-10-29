@@ -50,7 +50,7 @@ function lift_over ()
 	#for i in {1..22} X Y
 	#do  
 	f=$fb.$cb.$i.hg19.vcf;
-	tabix $vcf $i -h |python ~/Pipeline/scripts/lift_over_chain.py  --format vcf --chain $chain  > $f  2> nohup.$fbname.$i.log  
+	tabix $vcf $i -h |python $LIFTOVER/lift_over_chain.py  --format vcf --chain $chain  > $f  2> nohup.$fbname.$i.log  
 	annotation $f $fb.$cb.$i.hg19
 
 }
@@ -72,6 +72,10 @@ function annotation ()
 if [ $convert eq 1 ]; then
 	for i in {1..22} X Y; do
 		echo $i
+		if [ ! -f $LIFTOVER ]; then
+			echo "please specify $LIFTOVER in your path;\n"
+			exit;
+		fi
 		lift_over $fvcf $fchain $i &
 		 ## lift over hg38 to hg19 by per chromosome
 		 ## and annotated each converted hg19 chromosome
