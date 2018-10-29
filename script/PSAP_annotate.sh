@@ -62,6 +62,10 @@ do
 # anno_site $file  &
 #fi
 # bn=$(basename $file|sed 's/.report.txt//g')
+  if[ ! -f $ANNOVAR ]; then 
+   echo "cannot find annovar, please set ANNOVAR=XXX (the annovar installed folder) and ANNHDB=XXX ( the annotation datasets for annovar) in your path"
+   exit;
+  fi
  if [ ! -f $file.anno.bed ]; then
  anno_site $file  &
  fi
@@ -77,6 +81,13 @@ done
 wait
 
 rm merge.bed
+
+if [ ! -f $REGIONDB ]; then
+ echo "cannot find REGIONDB in your path, please set REGIONDB=XXX ( the addtional region-based annotation file that you wantted to annotate the PSAP output, such as pLI score, Mappability...), otherwise, the annotation ends here!.\n"
+ exit;
+fi 
+
+
 for f in annotated/*.anno.bed
 do
 cut -f 1-5 $f|egrep -v "^#|^Chr"|awk 'BEGIN{FS="\t";OFS="\t"}{print $1,$2-1,$3,$4,$5}' |vcf-sort -c >> merge.bed
