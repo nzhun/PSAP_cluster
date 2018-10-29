@@ -1,0 +1,1 @@
+#CHROM	POS	ID	REF	ALT	Chr	Start	Ref	Gene.wgEncodeGencodeBasicV19	Func.wgEncodeGencodeBasicV19	ExonicFunc.wgEncodeGencodeBasicV19	AAChange.wgEncodeGencodeBasicV19	mac63kFreq_ALL	1000g2014sep_all	esp6500si_all	Alt	CADD_Phred	COL-CHUNG_CHD_312_CHD_0165708211
