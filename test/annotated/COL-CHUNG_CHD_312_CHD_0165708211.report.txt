@@ -1,0 +1,2 @@
+X.CHROM	POS	ID	REF	ALT	Chr	Start	Ref	Gene.wgEncodeGencodeBasicV19	Func.wgEncodeGencodeBasicV19	ExonicFunc.wgEncodeGencodeBasicV19	AAChange.wgEncodeGencodeBasicV19	mac63kFreq_ALL	X1000g2014sep_all	esp6500si_all	Alt	CADD_Phred	pid.geno	Geno	Dz.Model	popScore	vid	pid	n	validation	Flag
+4	47578970	.	A	TRUE	4	47578970	A	ATP10D	exonic	stopgain	ATP10D:ENST00000273859.3:exon19:c.A3547T:p.R1183X	NA	NA	NA	TRUE	41	het	het	DOM-het	0.000134999999999996	4:47578970:TRUE	COL-CHUNG_CHD_312_CHD_0165708211	1	ok	0
