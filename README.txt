@@ -7,3 +7,6 @@ Here is an example for singleton psap analysis
 bash  psap/individual_psap_pipeline.sh  test/test.singleton.vcf  test/test.singleton  test/test.singleton.ped
 
 the scripts under script/ is used for cohort PSAP analysis, it requires tabix vcf.gz  and pedigree file for the cohort.
+
+It requires liftover if the vcf file is hg38-based
+
