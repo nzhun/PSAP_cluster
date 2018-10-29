@@ -7,16 +7,29 @@ print(getwd())
 print(args[1])
 print(args[2])
 print(args[3])
+
 fam.id<-unlist(strsplit(args[1],".avinput",fixed=T))[1]
+
+
+dat<-read.table(file=paste(fam.id,"_popStat.txt",sep=""),sep="\t",header=T,stringsAsFactors=F,check.names=F,comment.char = "")  #"annotated/",
+dat$vid = paste(dat$Chr, dat$Start, dat$Alt,sep=":")
+if(dim(dat)[1]<1){print("Error: No popstat data"); stop("Error: No popstat data");}
 fam<-read.table(file=args[2],header=F,stringsAsFactors=F,sep="\t",skip = 1,fill = T)
+if(dim(fam)[2]<6){stop("please make sure the pedigree file have header and at least six columns delimited by tab");}
 n.fam<-nrow(fam)
 uf = as.character(fam$V2[which(fam$V6==1)])
+uf<-uf[which(uf%in% names(dat))]
+n.uf<-length(uf)
+
+
 n.uf = length(uf)
 if(n.uf==0){
 #	uf=as.character(c(fam$V3,fam$V4))
-if(nchar(fam$V3[which(fam$V6==2)])>1){uf=fam$V3[which(fam$V6==2)]}
-if(nchar(fam$V4[which(fam$V6==2)])>1){uf=c(uf,fam$V4[which(fam$V6==2)])}
-        n.uf=length(uf)
+	if(nchar(fam$V3[which(fam$V6==2)])>1){uf=fam$V3[which(fam$V6==2)]}
+	if(nchar(fam$V4[which(fam$V6==2)])>1){uf=c(uf,fam$V4[which(fam$V6==2)])}
+	uf<-uf[which(uf%in% names(dat))]
+	n.uf<-length(uf)
+	n.uf=length(uf)
 }
 af<-as.character(fam$V2[which(fam$V6==2)])
 n.af<-length(af)
@@ -32,12 +45,8 @@ models = c("DOM-het","REC-hom","REC-chet")
 genos = c("het","hom")
 print("databases loaded")
 # READ IN DATA
-dat<-read.table(file=paste(fam.id,"_popStat.txt",sep=""),sep="\t",header=T,stringsAsFactors=F,check.names=F,comment.char = "")  #"annotated/",
-dat$vid = paste(dat$Chr, dat$Start, dat$Alt,sep=":")
-if(dim(dat)[1]<1){print("Error: No popstat data"); stop("Error: No popstat data");}
 # ANALYSIS STEP 1: IDENTIFY SHARED VARIANTS AMONG AFFECTEDS
 af.dat = list()
-
 for(i in af){
     index<-grep(paste("Dz.Model.",i,sep=""),names(dat))
     if(length(index)<1){next}
@@ -45,11 +54,12 @@ for(i in af){
         for(m in 1:length(models)){
           
             tmp = dat[which(dat[,paste("Dz.Model.",i,sep="")] == models[m]),] # extract all CHETs from af
-            if(models[m] == "REC-chet" & nrow(tmp) > 0){
+	    if(models[m] == "REC-chet" & nrow(tmp) > 0){
                 a1 = dat[which(dat[,paste("Dz.Model.",i,sep="")] == "DOM-het" & dat$Gene.wgEncodeGencodeBasicV19 %in% tmp$Gene.wgEncodeGencodeBasicV19),] # extract all CHET mates
                 a1 = merge(a1[-which(names(a1) %in% c(paste("popScore.",i,sep=""),paste("Dz.Model.",i,sep="")))],tmp[c("Gene.wgEncodeGencodeBasicV19",paste("popScore.",i,sep=""),paste("Dz.Model.",i,sep=""))]) # rescore the DOM-het PSAPs to be equal to the REC-chet mates' PSAP and rename the DZ model for the mates
                 tmp = rbind(tmp,a1)
             }
+	    print(models[m])
             af.dat[[m]] = tmp
         }
     }else{
@@ -161,12 +171,14 @@ if(n.uf > 0){
 #validated = candidates[grep ("violation",candidates$validation,invert = T),]
 validated = candidates #[grep ("violation",candidates$validation,invert = T),]
 ## ANALYSIS STEP 3: FLAG SITES THAT HAVE LOW COVERAGE IN THE MAC61K DATA, MISSING ALLELE FREQUENCIES IN THE MAC61K DATA BUT NOT IN THE ESP AND 1000 GENOMES DATA, OR IS AN HGMD GENE WITH A MATCHING MODE OF INHERITANCE
+
 validated$Flag = 0
-validated$Flag[which(validated$Gene.wgEncodeGencodeBasicV19 %in% low.coverage & is.na(validated$ExAC_ALL)==F)] = validated$Flag[which(validated$Gene.wgEncodeGencodeBasicV19 %in% low.coverage & is.na(validated$ExAC_ALL)==F)] + 100
+maf=names(validated)[grep("ExAC_ALL|mac63kFreq_ALL",names(validated),ignore.case=T)[1]]
+validated$Flag[which(validated$Gene.wgEncodeGencodeBasicV19 %in% low.coverage & is.na(validated[,maf])==F)] = validated$Flag[which(validated$Gene.wgEncodeGencodeBasicV19 %in% low.coverage & is.na(validated[,maf])==F)] + 100
 validated$Flag[which(validated$Gene.wgEncodeGencodeBasicV19 %in% hgmd.ad & validated[,paste("Dz.Model.",af[1],sep="")] == "DOM-het")] = validated$Flag[which(validated$Gene.wgEncodeGencodeBasicV19 %in% hgmd.ad & validated[,paste("Dz.Model.",af[1],sep="")] == "DOM-het")] + 20
 validated$Flag[which(validated$Gene.wgEncodeGencodeBasicV19 %in% hgmd.ar & validated[,paste("Dz.Model.",af[1],sep="")] %in% c("REC-hom","REC-chet"))] = validated$Flag[which(validated$Gene.wgEncodeGencodeBasicV19 %in% hgmd.ar & validated[,paste("Dz.Model.",af[1],sep="")] %in% c("REC-hom","REC-chet"))] + 3
 
-validated<-validated[which(validated[,paste("popScore.",af[1],sep="")]<0.05),]
+validated<-validated[intersect(grep("violation",validated$validation,invert=T,ignore.case=T),which(validated[,paste("popScore.",af[1],sep="")] <= 0.1)),]
 ## WRITE VALIDATED CANDIDATES TO FILE
 write.table(validated[order(validated[,paste("popScore.",af[1],sep="")]),],file=paste(fam.id,".report.txt",sep=""),sep="\t",col.names=T,row.names=F,quote=F) #"annotated/",
 #write.table(validated[order(validated[,paste("popScore.",af[1],sep="")]),],file=paste("~/server/jw.psap.report.txt",sep=""),sep="\t",col.names=T,row.names=F,quote=F) #"annotated/",

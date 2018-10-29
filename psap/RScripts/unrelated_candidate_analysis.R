@@ -40,6 +40,7 @@ for(i in 1:length(af)){
   dat<-read.table(file=paste(cohort.id,"/",af[i],"_popStat.txt",sep=""),sep="\t",header=T,stringsAsFactors=F,check.names=F,comment.char = "")
   dat$vid = paste(dat$Chr, dat$Start, dat$Alt,sep=":")
   dat$pid = af[i]
+  names(dat)[which(names(dat)==af[i])]<-"pid.geno"
   print(af[i])
   
   for(m in 1:length(models)){
@@ -62,17 +63,17 @@ for(i in 1:length(af)){
 
 candidates = data.frame()
 for(m in 1:length(models)){
-  print(models[m])
   if(models[m] == "REC-chet"){
-    tmp = do.call(rbind,by(af.dat[[m]],af.dat[[m]]$chet.id, function(dat) return(data.frame(unique(dat[which(!names(dat) %in% c("pid","chet.id"))]),pid=paste(dat$pid,collapse=","),n=nrow(dat)))))
+      if(dim(af.dat[[m]])[1]>0){
+      	tmp = do.call(rbind,by(af.dat[[m]],af.dat[[m]]$chet.id, function(dat) return(data.frame(unique(dat[which(!names(dat) %in% c("pid","chet.id"))]),pid=paste(dat$pid,collapse=","),n=nrow(dat)))))
+      }
   }else{
     if(dim(af.dat[[m]])[1]>0){
       tmp = do.call(rbind,by(af.dat[[m]],af.dat[[m]]$vid, function(dat) return(data.frame(unique(dat[which(names(dat) != "pid")]),pid=paste(dat$pid,collapse=","),n=nrow(dat)))))
     }
   }
-  candidates = rbind(candidates,tmp)
+ candidates = rbind(candidates,tmp)
 }
-
 ## ANALYSIS STEP 2: Validate inheritance models
 if(n.uf > 0){
 	print("validating against unrelated individuals")

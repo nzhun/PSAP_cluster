@@ -1,5 +1,20 @@
-fscript=/home/local/ARCS/nz2274/Freeze8/
-REGINDB="/home/local/ARCS/nz2274/Resources/gnomad/2.0.2/coverage/region_db/region_db.0based.bed.gz"
+#fscript=$PSAP_PATH #/home/nz2274/Application/PSAP_cluster/ #/home/local/ARCS/nz2274/Freeze8/
+#REGINDB="/home/nz2274/Resources/Region_Lib/region_db.0based.bed.gz" #/home/local/ARCS/nz2274/Resources/gnomad/2.0.2/coverage/region_db/region_db.0based.bed.gz"
+
+
+echo "input: vcf.gz ped"
+if [ "$#" -lt 2 ]; then
+   echo "input: vcf.gz ped"
+   exit
+fi
+
+
+vcf=$1 #"/home/local/ARCS/nz2274/Freeze8/Columbia_Freeze_Eight.hg19.vcf.gz" #"../Columbia";
+ped=$2; # pedigree file
+
+
+
+
 function anno_site {
   file=$1
   awk 'BEGIN{FS="\t";OFS="\t"}{
@@ -17,7 +32,7 @@ function anno_site {
   print $1,$2,$2+length($4)-1,$4,$5,$3,$_
   }'  $file|cut -f 1- > $file.format2.txt
   echo $file;
-  perl $ANNOVAR/table_annovar.pl $file.format2.txt $ANNHDB --buildver hg19 --remove -protocol refGene,esp6500siv2_all,esp6500siv2_aa,esp6500siv2_ea,1000g2015aug_all,1000g2015aug_eur,1000g2015aug_amr,1000g2015aug_eas,1000g2015aug_afr,1000g2015aug_sas,exac03,cadd13,genomicSuperDups,clinvar_20160302,mcap,revel,MPC,gnomad_exome,gnomad_genome -operation g,f,f,f,f,f,f,f,f,f,f,f,r,f,f,f,f,f,f -otherinfo  -nastring .
+  perl $ANNOVAR/table_annovar.pl $file.format2.txt $ANNHDB --buildver hg19 --remove -protocol refGene,esp6500siv2_all,esp6500siv2_aa,esp6500siv2_ea,1000g2015aug_all,1000g2015aug_eur,1000g2015aug_amr,1000g2015aug_eas,1000g2015aug_afr,1000g2015aug_sas,exac03,cadd13,genomicSuperDups,clinvar_20160302,mcap,revel,gnomad_exome,gnomad_genome -operation g,f,f,f,f,f,f,f,f,f,f,f,r,f,f,f,f,f -otherinfo  -nastring .
  # bash ~/Pipeline/NA_script/annobed.simple.sh  $file.format2.txt
   col=$(head -n 1 $file.format2.txt.hg19_multianno.txt|awk '{print NF}')
   
@@ -39,14 +54,23 @@ then
   echo "input format: vcf ped"
    exit
 fi
-vcf=$1 #"/home/local/ARCS/nz2274/Freeze8/Columbia_Freeze_Eight.hg19.vcf.gz" #"../Columbia";
-ped=$2;
-
 for file in annotated/*report.txt
 do
  #"COL-CHUNG_F14-1_ND-0234527700.report.txt";
  bn=$(basename $file|sed 's/.report.txt//g')
+#if [ ! -f  "file.anno.bed" ]; then
+# anno_site $file  &
+#fi
+# bn=$(basename $file|sed 's/.report.txt//g')
+ if [ ! -f $file.anno.bed ]; then
  anno_site $file  &
+ fi
+ 
+ sz=$(wc -c $file.anno.bed|awk '{print $1}')
+
+ if [ "$sz"  -lt 4000 ]; then
+    anno_site $file &
+ fi
 
 done
 
@@ -64,11 +88,11 @@ tabix  $REGIONDB  -T merge.bed -h |bgzip -c > ask.db.bed.gz
 tabix -f ask.db.bed.gz
 echo $vcf
 tabix  $vcf -T merge.bed -h |bgzip -c  > subset.vcf.gz
-perl $fscript/script/vcf2bed_full.pl subset.vcf.gz
-key=$(basename $f|cut -f 1 -d".")
-p=$(egrep $key $ped|cut -f 2)
-echo  $key."\t".$p."\n";
-awk 'BEGIN{FS="\t";OFS="\t"}{print $1,$2,$3,$4,$5,$7,$8,$9,$(NF-2),$(NF-1),$NF }'  subset.vcf.gz.bed|vcf-sort -c |bgzip -c > subset.vcf.bed.gz
+perl ${PSAP_PATH}/script/vcf2bed_full.pl subset.vcf.gz
+#key=$(basename $f|cut -f 1 -d".")
+#p=$(egrep $key $ped|cut -f 2)
+#echo  $key."\t".$p."\n";
+awk 'BEGIN{FS="\t";OFS="\t"}{fac=0;faf=0;fan=0;if(NR==1){for(i=7;i<10;i++){if($i=="AC"){fac=i;}if($i=="AF"){faf=i} if($i=="AN"){fan=i}} print $1,$2,$3,$4,$5,"AF\tAC\tAN",$(NF-2),$(NF-1),$NF;next};s=$1"\t"$2"\t"$3"\t"$4"\t"$5; if(faf >0){s=s"\t"$faf}else{s=s"\t"0;} if(fac>0){s=s"\t"$fac}else{s=s"\t0"}if(fan>0){s=s"\t"$fan}else{s=s"\t0"};  print s,$(NF-2),$(NF-1),$NF }'  subset.vcf.gz.bed|vcf-sort -c |bgzip -c > subset.vcf.bed.gz
 tabix -f subset.vcf.bed.gz
 
 tabix subset.vcf.bed.gz -H > ask.db.local.bed
@@ -84,22 +108,22 @@ tabix ask.db.local.bed.gz -H > db.header.txt
 
 for f in annotated/*.anno.bed
 do
-head -n 1 $f > $f.addregion.bed
-cat db.header.txt >> $f.addregion.bed
-echo "overlap" >> $f.addregion.bed
-sed -i ':a;N;$!ba;s/\n/\t/g' $f.addregion.bed
-#set -i 's/^C/#C/g' $f.addregion.bed 
-echo "$f tested"
-sed -i 's/^C/#C/g' $f
-sed -i 's/^c/#C/g' $f
-key=$(basename $f|cut -f 1 -d".")
-p=$(egrep $key $ped|cut -f 2)
-less ask.db.local.bed.gz|egrep "^#|^C|^c|^X.c|^X.C|$p" |bgzip -c > db.$p.local.bed.gz
-tabix -f db.$p.local.bed.gz
-s=$(awk -v id=$p '{for(i=1;i<NF+1;i++){if($i=="Dz.Model"||$i=="Dz.Model."id){print i;last}}}' $f.addregion.bed)
-echo $s
-bedtools intersect -a $f -b db.$p.local.bed.gz -wao |sort -k1,1n -k2,2n -k3,3n -k4,4d -k5,5d -k$s,$s -t$'\t' -u|vcf-sort -c  >> $f.addregion.bed 
-rm db.$p.local.bed.gz*
+head -n 1 $f > $f.addregion.bed;
+cat db.header.txt >> $f.addregion.bed;
+echo "overlap" >> $f.addregion.bed;
+sed -i ':a;N;$!ba;s/\n/\t/g' $f.addregion.bed;
+#set -i 's/^C/#C/g' $f.addregion.bed ;
+echo "$f tested";
+sed -i 's/^C/#C/g' $f;
+sed -i 's/^c/#C/g' $f;
+key=$(basename $f|cut -f 1 -d".");
+p=$(egrep $key $ped|cut -f 2|egrep "$key"|uniq);
+less ask.db.local.bed.gz|egrep "^#|^C|^c|^X.c|^X.C|$p" |bgzip -c > db.$p.local.bed.gz;
+tabix -f db.$p.local.bed.gz;
+s=$(awk -v id=$p '{for(i=1;i<NF+1;i++){if($i=="Dz.Model"||$i=="Dz.Model."id){print i;last}}}' $f.addregion.bed);
+echo $s;
+bedtools intersect -a $f -b db.$p.local.bed.gz -wao |sort -k1,1n -k2,2n -k3,3n -k4,4d -k5,5d -k$s,$s -t$'\t' -u|vcf-sort -c  >> $f.addregion.bed ;
+rm db.$p.local.bed.gz*;
 done 
 
 
@@ -116,13 +140,13 @@ mkdir $folder
 
 for file in $(ls annotated/*.addregion.bed); do 
 key=$(basename $file|cut -f 1 -d".")
-p=$(egrep $key $ped|cut -f 2)
-perl $fscript/script/extract_keys.pl $file $fscript/src/format.header.txt $folder  $p $ped $freq
+p=$(cut -f 2 $ped|egrep "$key"|uniq)
+perl ${PSAP_PATH}/script/extract_keys.pl $file ${PSAP_PATH}/src/format.header.txt $folder  $p $ped $freq
 ftemp=$(ls $folder/*$key*.extract.txt)
  sort -k3,3g $ftemp > temp
  mv temp $ftemp
 
-cp ~/Resources/PSAP/README.txt $folder/
+cp ${PSAP_PATH}/src/README.txt $folder/
 done
 
 
@@ -133,12 +157,12 @@ mkdir $folder
 for file in $(ls annotated/*.addregion.bed); do 
 key=$(basename $file|cut -f 1 -d".")
 p=$(egrep $key $ped|cut -f 2)
-perl $fscript/script/extract_keys.pl $file $fscript/src/format.header.txt $folder  $p $ped $freq
+perl ${PSAP_PATH}/script/extract_keys.pl $file ${PSAP_PATH}/src/format.header.txt $folder  $p $ped $freq
 ftemp=$(ls $folder/*$key*.extract.txt)
 sort -k3,3g $ftemp > temp
 mv temp $ftemp
 
-cp $fscript/src/README.txt $folder/
+cp ${PSAP_PATH}/src/README.txt $folder/
 done
 
 

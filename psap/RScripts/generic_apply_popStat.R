@@ -16,27 +16,30 @@ fped=args[2]
 score = "CADD_Phred"
 scale = seq(0,70,0.05)
 lookup.genes = scan(file=paste(dir,"psap/lookups/lookup_genes.txt",sep=""),"character")
+empty<-c("x","-","0","X")
 
 ## READ IN AND FORMAT DATA
 
 exome.raw<-read.table(file=paste(fam.id,".avinput.hg19_multianno.txt",sep=""),sep="\t",stringsAsFactors=F,skip=1,quote = "",check.names = F,skipNul = T,comment.char = "")  #"annotated/",
+
 print(paste(fam.id,".avinput.hg19_multianno.txt",sep=""))
-print(paste(fam.id,".avinput.header",sep=""))
 header<-read.table(file=paste(fam.id,".avinput.hg19_multianno.txt",sep=""),sep="\t",stringsAsFactors=F,nrow=1) #"annotated/",
 vcf.header<-read.table(file=paste(fam.id,".avinput.header",sep=""),sep="\t",stringsAsFactors=F,comment.char="@")
 n.annos=ncol(header)
 names(exome.raw)=c(header[-n.annos],vcf.header)
 #print(names(exome.raw))
 #print(args[2])
+maf=names(exome.raw)[grep("ExAC_ALL|mac63kFreq_ALL",names(exome.raw),ignore.case=T)[1]]
 fam<-read.table(file=fped,header=F,stringsAsFactors=F,sep="\t",skip = 1,fill = T)
 fam<- fam[which(fam$V2%in% names(exome.raw)),]
-print(fam$V2)
 if(dim(fam)[1]<1){stop("make sure individual IDs are as the same as ped file\n or at least one affected individual in ped file!\n")}
-if(length(which(fam$V2==2)) <1){stop("at least one affected individual in ped file!\n")}
+if(length(which(fam$V6==2)) <1){stop("at least one affected individual in ped file!\n")}
 n.fam<-nrow(fam)
-empty<-c("x","-","0","X")
-father=as.character(unique(fam$V3[which(fam$V6==2 & !fam$V3 %in%empty )]))
-mother=as.character(unique(fam$V4[which(fam$V6==2 & !fam$V4 %in% empty)]))
+fam$V3[which(!fam$V3%in%empty & !fam$V3%in%names(exome.raw))]="X"
+fam$V4[which(!fam$V4%in%empty & !fam$V4%in%names(exome.raw))]="X"
+
+father=as.character(unique(fam$V3[which(fam$V6==2 & !fam$V3 %in%empty ) & fam$V3 %in% names(exome.raw)]))
+mother=as.character(unique(fam$V4[which(fam$V6==2 & !fam$V4 %in% empty) & fam$V4 %in% names(exome.raw)]))
 parents =c( father,mother )# ORDERED DAD THEN MOM
 if(length(parents)==0){
   print( "Error, please use individual pipeline")
@@ -96,7 +99,7 @@ bl<-scan(paste(dir,"psap/lookups/blacklist_122814.txt",sep=""),what="character")
 bl.remove = unique(c(which(exome.raw$Gene.wgEncodeGencodeBasicV19 %in% bl),grep("^HLA", exome.raw$Gene.wgEncodeGencodeBasicV19), grep("^MUC", exome.raw$Gene.wgEncodeGencodeBasicV19), grep("^KRT", exome.raw$Gene.wgEncodeGencodeBasicV19),grep("^OR", exome.raw$Gene.wgEncodeGencodeBasicV19), grep("^TRBV", exome.raw$Gene.wgEncodeGencodeBasicV19)))
 
 # 2) REMOVE AF DISCREPANCIES (ANYTHING THAT IS MISSING IN ExAC BUT PRESENT IN 1000GP OR ESP AT GREATER THAN 5% FREQUENCY
-af.remove = which(is.na(exome.raw$ExAC_ALL) == T & exome.raw[,"1000g2014sep_all"] > 0.05 | is.na(exome.raw$ExAC_ALL) == T & exome.raw$esp6500si_all > 0.05)
+af.remove = which(is.na(exome.raw[,maf]) == T & exome.raw[,"1000g2014sep_all"] > 0.05 | is.na(exome.raw[,maf]) == T & exome.raw$esp6500si_all > 0.05)
 
 # 3) REMOVE GENES NOT IN LOOKUP TABLES
 lookup.remove = which(! exome.raw$Gene.wgEncodeGencodeBasicV19 %in% lookup.genes)
@@ -210,10 +213,11 @@ gene.index = as.integer(factor(exome$Gene.wgEncodeGencodeBasicV19[indels],levels
 exome[,score][indels] = lookup.lof[gene.index,2]
 
 # 6) REMOVE VARIANTS THAT DO NOT PASS QUALITY FILTER OR HAVE MISSING pCADD SCORES
+print ("output\n")
 info<-exome[which(is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
             c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
               "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-              "ExAC_ALL","1000g2014sep_all","esp6500si_all","Alt",score,children,parents)]
+              maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents)]
 
 # original version: pass filter is applied 
 # info<-exome[which(exome$FILTER=="PASS" & is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
@@ -226,7 +230,7 @@ id.raw = paste(exome.raw$Chr,exome.raw$Start,exome.raw$Ref,exome.raw$Alt,sep=":"
 id.final = paste(info$Chr,as.numeric(info$Start),info$Ref,info$Alt,sep=":")
 missing<-unique(exome.raw[which(! id.raw %in% id.final),c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19",
                                                           "Func.wgEncodeGencodeBasicV19","ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-                                                          "ExAC_ALL","1000g2014sep_all","esp6500si_all","Alt",score,children,parents)])
+                                                          maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents)])
 
 rm(list=c("keep","exome","tmp.exome","exome.raw","af.remove","lookup.remove","bl.remove","bl","lookup.genes"))
 class(info[,score]) = "numeric"
@@ -279,7 +283,7 @@ for(m in indv.cols){
 extra_cols<-grep("Dz.Model|popScore",names(final))
 keep= c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
         "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-        "ExAC_ALL","1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(final)[extra_cols])
+        maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(final)[extra_cols])
 final<-final[,keep]
 ## WRITE OUTPUT FOR FAMILY
 print("writing file")
@@ -294,4 +298,6 @@ write.out = final[-which(rowSums(is.na(final[grep("popScore.",names(final))])) =
 write.table(write.out,file=paste(fam.id,"_popStat.txt",sep=""),col.names=T,row.names=F,sep="\t")
 missing.out = missing[-which(missing$Func.wgEncodeGencodeBasicV19 == "exonic" | missing$Func.wgEncodeGencodeBasicV19 == "splicing;intronic" | missing$Func.wgEncodeGencodeBasicV19 =="splicing;exonic" | missing$Func.wgEncodeGencodeBasicV19 =="exonic;splicing"),]  #"annotated/",
 write.table(missing.out,file=paste(fam.id,"_missing_data.txt",sep=""),sep="\t",col.names=T,row.names=F) #
-
+fam=fam[,1:6]
+names(fam)=c("#FAMID","Proband","Father","Mother","Sex","Affected");
+write.table(fam,args[2],quote=F,sep="\t",row.names=F)
