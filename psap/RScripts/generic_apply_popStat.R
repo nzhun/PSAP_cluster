@@ -38,8 +38,8 @@ n.fam<-nrow(fam)
 fam$V3[which(!fam$V3%in%empty & !fam$V3%in%names(exome.raw))]="X"
 fam$V4[which(!fam$V4%in%empty & !fam$V4%in%names(exome.raw))]="X"
 
-father=as.character(unique(fam$V3[which(fam$V6==2 & !fam$V3 %in%empty ) & fam$V3 %in% names(exome.raw)]))
-mother=as.character(unique(fam$V4[which(fam$V6==2 & !fam$V4 %in% empty) & fam$V4 %in% names(exome.raw)]))
+father=as.character(unique(fam$V3[which(fam$V6==2 & !fam$V3 %in%empty  & fam$V3 %in% names(exome.raw))]))
+mother=as.character(unique(fam$V4[which(fam$V6==2 & !fam$V4 %in% empty & fam$V4 %in% names(exome.raw))]))
 parents =c( father,mother )# ORDERED DAD THEN MOM
 if(length(parents)==0){
   print( "Error, please use individual pipeline")
@@ -102,6 +102,21 @@ bl.remove = unique(c(which(exome.raw$Gene.wgEncodeGencodeBasicV19 %in% bl),grep(
 af.remove = which(is.na(exome.raw[,maf]) == T & exome.raw[,"1000g2014sep_all"] > 0.05 | is.na(exome.raw[,maf]) == T & exome.raw$esp6500si_all > 0.05)
 
 # 3) REMOVE GENES NOT IN LOOKUP TABLES
+lookup.lof = read.table(file=paste(dir,"psap/lookups/full.lof.pCADD.gencodeV19.allsites.txt.gz",sep=""),stringsAsFactors=F)
+multi_transcript_indel<-intersect(which(exome.raw$Ref=="-"|exome.raw$Alt=="-"),grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19))
+exome.raw$Gene.wgEncodeGencodeBasicV19[multi_transcript_indel]<-unlist(lapply(multi_transcript_indel,
+    FUN <-function(i){
+           annoGenes<-unlist(strsplit(exome.raw$Gene.wgEncodeGencodeBasicV19[i],split = ";"));
+           ids<-which(annoGenes%in%lookup.genes); 
+           if(length(ids)>1){
+              lof_a<-lookup.lof[which(lookup.lof$V1%in%annoGenes[ids]),1:2];
+              return(lof_a[order(lof_a$V2,decreasing = T)[1],1])
+            } 
+            if(is.na(ids)){ids=1}; 
+            return(annoGenes[ids])
+      }
+      ))
+
 lookup.remove = which(! exome.raw$Gene.wgEncodeGencodeBasicV19 %in% lookup.genes)
 
 # 4) REMOVE LINES WHERE ALL AFs ARE MISSING
