@@ -73,6 +73,19 @@ bl.remove = unique(c(which(exome.raw$Gene.wgEncodeGencodeBasicV19 %in% bl),grep(
 af.remove = which(is.na(exome.raw[,maf]) == T & exome.raw[,"1000g2014sep_all"] > 0.05 | is.na(exome.raw[,maf]) == T & exome.raw$esp6500si_all > 0.05)
 
 # 3) REMOVE GENES NOT IN LOOKUP TABLES
+multi_transcript_indel<-intersect(which(exome.raw$Ref=="-"|exome.raw$Alt=="-"),grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19))
+exome.raw$Gene.wgEncodeGencodeBasicV19[multi_transcript_indel]<-unlist(lapply(multi_transcript_indel,
+      FUN <-function(i){
+          annoGenes<-unlist(strsplit(exome.raw$Gene.wgEncodeGencodeBasicV19[i],split = ";"));
+          ids<-which(annoGenes%in%lookup.genes); 
+          if(length(ids)>1){
+             lof_a<-lookup.lof[which(lookup.lof$V1%in%annoGenes[ids]),1:2];
+             return(lof_a[order(lof_a$V2,decreasing = T)[1],1])
+          } 
+          if(is.na(ids)){ids=1}; 
+          return(annoGenes[ids])
+      }
+))
 lookup.remove = which(! exome.raw$Gene.wgEncodeGencodeBasicV19 %in% lookup.genes)
 
 # 4) REMOVE LINES WHERE ALL AFs ARE MISSING
