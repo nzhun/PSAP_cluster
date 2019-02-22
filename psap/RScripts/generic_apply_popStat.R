@@ -112,7 +112,7 @@ exome.raw$Gene.wgEncodeGencodeBasicV19[multi_transcript_indel]<-unlist(lapply(mu
               lof_a<-lookup.lof[which(lookup.lof$V1%in%annoGenes[ids]),1:2];
               return(lof_a[order(lof_a$V2,decreasing = T)[1],1])
             } 
-            if(is.na(ids)){ids=1}; 
+            if(length(ids)<1||is.na(ids)){ids=1}; 
             return(annoGenes[ids])
       }
       ))
