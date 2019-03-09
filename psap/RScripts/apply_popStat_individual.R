@@ -18,6 +18,9 @@ scale = seq(0,70,0.05)
 print(paste(adir,"psap/lookups/lookup_genes.txt",sep=""))
 lookup.genes = scan(file=paste(adir,"psap/lookups/lookup_genes.txt",sep=""),"character")
 
+
+#lookup.lof = scan(file=paste(adir,"psap/lookups/full.lof.pCADD.gencodeV19.allsites.txt.gz",sep=""),"character")
+lookup.lof = read.table(file=paste(adir,"psap/lookups/full.lof.pCADD.gencodeV19.allsites.txt.gz",sep=""),stringsAsFactors=F)
 ## READ IN AND FORMAT DATA
 print(paste(prefix,".hg19_multianno.txt",sep=""))
 exome.raw<-read.table(file=paste(prefix,".hg19_multianno.txt",sep=""),sep="\t",comment.char="",quote="", stringsAsFactors=F,skip=1)
@@ -73,7 +76,7 @@ bl.remove = unique(c(which(exome.raw$Gene.wgEncodeGencodeBasicV19 %in% bl),grep(
 af.remove = which(is.na(exome.raw[,maf]) == T & exome.raw[,"1000g2014sep_all"] > 0.05 | is.na(exome.raw[,maf]) == T & exome.raw$esp6500si_all > 0.05)
 
 # 3) REMOVE GENES NOT IN LOOKUP TABLES
-multi_transcript_indel<-intersect(which(exome.raw$Ref=="-"|exome.raw$Alt=="-"),grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19))
+multi_transcript_indel<-grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19) #)intersect(which(exome.raw$Ref=="-"|exome.raw$Alt=="-"),
 exome.raw$Gene.wgEncodeGencodeBasicV19[multi_transcript_indel]<-unlist(lapply(multi_transcript_indel,
       FUN <-function(i){
           annoGenes<-unlist(strsplit(exome.raw$Gene.wgEncodeGencodeBasicV19[i],split = ";"));
@@ -86,7 +89,7 @@ exome.raw$Gene.wgEncodeGencodeBasicV19[multi_transcript_indel]<-unlist(lapply(mu
           return(annoGenes[ids])
       }
 ))
-lookup.remove = which(! exome.raw$Gene.wgEncodeGencodeBasicV19 %in% lookup.genes)
+lookup.remove = intersect(which(! exome.raw$Gene.wgEncodeGencodeBasicV19 %in% lookup.genes),multi_transcript_indel)
 
 # 4) REMOVE LINES WHERE ALL AFs ARE MISSING
 af = ped$V2[which(ped$V6 == 2)]
@@ -104,7 +107,7 @@ keep<-unique(c(grep("splic",tmp.exome$Func.wgEncodeGencodeBasicV19),which(is.na(
 exome<-tmp.exome[keep,]
 
 # 4b) SCORE INDELS
-lookup.lof = read.table(file=paste(adir,"psap/lookups/full.lof.pCADD.gencodeV19.allsites.txt.gz",sep=""),stringsAsFactors=F)
+
 indels = grep("^frameshift",exome$ExonicFunc.wgEncodeGencodeBasicV19)
 gene.index = as.integer(factor(exome$Gene.wgEncodeGencodeBasicV19[indels],levels=lookup.lof[,1]))
 exome[,score][indels] = lookup.lof[gene.index,2]

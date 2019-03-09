@@ -103,7 +103,7 @@ af.remove = which(is.na(exome.raw[,maf]) == T & exome.raw[,"1000g2014sep_all"] >
 
 # 3) REMOVE GENES NOT IN LOOKUP TABLES
 lookup.lof = read.table(file=paste(dir,"psap/lookups/full.lof.pCADD.gencodeV19.allsites.txt.gz",sep=""),stringsAsFactors=F)
-multi_transcript_indel<-intersect(which(exome.raw$Ref=="-"|exome.raw$Alt=="-"),grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19))
+multi_transcript_indel<-grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19)
 exome.raw$Gene.wgEncodeGencodeBasicV19[multi_transcript_indel]<-unlist(lapply(multi_transcript_indel,
     FUN <-function(i){
            annoGenes<-unlist(strsplit(exome.raw$Gene.wgEncodeGencodeBasicV19[i],split = ";"));
