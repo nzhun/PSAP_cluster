@@ -10,7 +10,7 @@ fam.id<-dirname(args[1]) #strsplit(args[1],".avinput",fixed=T)
 ped = read.table(args[4],stringsAsFactors=F,skip = 1,header = F,sep="\t")
 ## Individual ID - ASSUMES only one individual is being analyzed/annotated
 
-indv.id = args[2]
+indv.id = gsub(" ", "", args[2], fixed = TRUE)
 
 ## at some point this may be changed to an argument based system but for now it's hard coded
 score = "CADD_Phred"
@@ -41,6 +41,10 @@ stopifnot(any(grepl("CADD_Phred",names(exome.raw))))
 # Extracts genotype info for specified individual
 a1 = substr(exome.raw[,indv.id],1,1)
 a2 = substr(exome.raw[,indv.id],3,3)
+for(ids in c(indv.id)){
+  exome.raw[,paste("Genotype",ids,sep="_")]<-exome.raw[,ids]
+}
+
 exome.raw[indv.id] = "NA"
 if(length(which(a1 != a2)) > 0){
   exome.raw[which(a1 != a2),indv.id] = "het"
@@ -116,7 +120,7 @@ exome[,score][indels] = lookup.lof[gene.index,2]
 info<-exome[which(exome$FILTER=="PASS" & is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
             c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
               "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-             maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id)]
+             maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id,"FORMAT",names(exome)[grep("Genotype_",names(exome),ignore.case = T)])]
 
 ## OUTPUT MISSING DATA/DATA NOT INCLUDED IN ANY OF THE ABOVE ANALYSES
 id.raw = paste(exome.raw$Chr,exome.raw$Start,exome.raw$Ref,exome.raw$Alt,sep=":")
@@ -124,7 +128,7 @@ id.final = paste(info$Chr,as.numeric(info$Start),info$Ref,info$Alt,sep=":")
 missing<-unique(exome.raw[which(! id.raw %in% id.final),
   c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19",
     "Func.wgEncodeGencodeBasicV19","ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-    maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id)])
+    maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id,"FORMAT",names(exome)[grep("Genotype_",names(exome),ignore.case = T)])])
 
 rm(list=c("keep","exome","tmp.exome","exome.raw","af.remove","lookup.remove","bl.remove","bl","lookup.genes"))
 class(info[,score]) = "numeric"
@@ -165,6 +169,6 @@ outfile=paste(fam.id,"/",indv.id,sep="")
 print( paste(paste(outfile,"_popStat.txt",sep="")))
 write.table(write.out,file=paste(outfile,"_popStat.txt",sep=""),col.names=T,row.names=F,sep="\t",quote=F)
 
-missing.out = missing[-which(missing$Func.wgEncodeGencodeBasicV19 == "exonic" | missing$Func.wgEncodeGencodeBasicV19 == "splicing;intronic" | missing$Func.wgEncodeGencodeBasicV19 =="splicing;exonic" | missing$Func.wgEncodeGencodeBasicV19 =="exonic;splicing"),]
+missing.out = missing#[-which(missing$Func.wgEncodeGencodeBasicV19 == "exonic" | missing$Func.wgEncodeGencodeBasicV19 == "splicing;intronic" | missing$Func.wgEncodeGencodeBasicV19 =="splicing;exonic" | missing$Func.wgEncodeGencodeBasicV19 =="exonic;splicing"),]
 write.table(missing.out,file=paste(outfile,"_missing_data.txt",sep=""),sep="\t",col.names=T,row.names=F,quote=F)
 

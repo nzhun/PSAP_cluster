@@ -62,7 +62,9 @@ if(any(grepl("cadd",names(exome.raw))) == T){
 }
 
 stopifnot(any(grepl("CADD_Phred",names(exome.raw))))
-
+for(ids in c(children,father,mother)){
+  exome.raw[,paste("Genotype",ids,sep="_")]<-exome.raw[,ids]
+}
 for(i in c(children,father,mother)){
   ids<-which(names(exome.raw)==i)
   if(length(ids)<1){next;}
@@ -232,7 +234,7 @@ print ("output\n")
 info<-exome[which(is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
             c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
               "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-              maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents)]
+              maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parentsnames(exome)[grep("Genotype_",names(exome),ignore.case = T)])]
 
 # original version: pass filter is applied 
 # info<-exome[which(exome$FILTER=="PASS" & is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
@@ -245,7 +247,7 @@ id.raw = paste(exome.raw$Chr,exome.raw$Start,exome.raw$Ref,exome.raw$Alt,sep=":"
 id.final = paste(info$Chr,as.numeric(info$Start),info$Ref,info$Alt,sep=":")
 missing<-unique(exome.raw[which(! id.raw %in% id.final),c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19",
                                                           "Func.wgEncodeGencodeBasicV19","ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-                                                          maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents)])
+                                                          maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(exome)[grep("Genotype_",names(exome),ignore.case = T)])])
 
 rm(list=c("keep","exome","tmp.exome","exome.raw","af.remove","lookup.remove","bl.remove","bl","lookup.genes"))
 class(info[,score]) = "numeric"
@@ -298,7 +300,7 @@ for(m in indv.cols){
 extra_cols<-grep("Dz.Model|popScore",names(final))
 keep= c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
         "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-        maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(final)[extra_cols])
+        maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,grep("Genotype_",names(exome),ignore.case = T),names(final)[extra_cols])
 final<-final[,keep]
 ## WRITE OUTPUT FOR FAMILY
 print("writing file")
