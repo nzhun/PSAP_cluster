@@ -14,7 +14,7 @@ fam.id<-unlist(strsplit(args[1],".avinput",fixed=T))[1]
 dat<-read.table(file=paste(fam.id,"_popStat.txt",sep=""),sep="\t",header=T,stringsAsFactors=F,check.names=F,comment.char = "")  #"annotated/",
 dat$vid = paste(dat$Chr, dat$Start, dat$Alt,sep=":")
 if(dim(dat)[1]<1){print("Error: No popstat data"); stop("Error: No popstat data");}
-fam<-read.table(file=args[2],header=F,stringsAsFactors=F,sep="\t",skip = 1,fill = T)
+fam<-read.table(file=args[2],header=F,stringsAsFactors=F,sep="\t",skip = 1,fill = T,blank.lines.skip=T)
 if(dim(fam)[2]<6){stop("please make sure the pedigree file have header and at least six columns delimited by tab");}
 n.fam<-nrow(fam)
 uf = as.character(fam$V2[which(fam$V6==1)])
@@ -30,6 +30,15 @@ if(n.uf==0){
 	uf<-uf[which(uf%in% names(dat))]
 	n.uf<-length(uf)
 	n.uf=length(uf)
+}
+parents<-c();
+proband<-c();
+if(n.uf>1){
+  id_fam<-which(nchar(fam$V3) > 1 & nchar(fam$V4)>1 & fam$V6==2)
+  if(length(id_fam)>0){
+    proband<-fam$V2[id_fam]
+    parents<-fam[id_fam,c(3:4)]
+  }
 }
 af<-as.character(fam$V2[which(fam$V6==2)])
 n.af<-length(af)
@@ -132,20 +141,27 @@ if(n.uf > 0){
 	print("checking for chet mate violations")	
 	# missing mate
 	# 1) pull out chets tagged with violation
+	af.chet.all.rows = unlist(lapply(1:nrow(candidates),
+	                                function(i) if(any(candidates[i,paste("Dz.Model.",af,sep="")] == "REC-chet") ) return(i)))
+	
+	
 	af.chet.ok.rows = unlist(lapply(1:nrow(candidates),
 	                                function(i) if(any(candidates[i,paste("Dz.Model.",af,sep="")] == "REC-chet") & candidates$validation[i] == "violation") return(i)))
 	# identifies REC-chet rows in affected individuals that were present in unaffecteds as a REC-hom or REC-chet
 	violations = candidates[af.chet.ok.rows,"Gene.wgEncodeGencodeBasicV19"]
 	# 2) loop over violated chet genes
-	missing_mate.chets = which(candidates[,paste("Dz.Model.",af,sep="")] == "REC-chet" & candidates$validation == "ok" & candidates$Gene.wgEncodeGencodeBasicV19 %in% violations)
+	missing_mate.chets = intersect(af.chet.all.rows,which(candidates$validation == "ok" & candidates$Gene.wgEncodeGencodeBasicV19 %in% violations))
 	# 4) remove chets where mate vioated disease inheritance model
 	candidates$validation[missing_mate.chets] = "mate violation"
 
         ##haplotype.chets
-        for (gene in unique(candidates$Gene.wgEncodeGencodeBasicV19[which(candidates[,paste("Dz.Model.",af,sep="")] == "REC-chet" & candidates$validation == "ok")])){
-		qindex=which(candidates[,paste("Dz.Model.",af,sep="")] == "REC-chet" & candidates$validation == "ok" & candidates$Gene.wgEncodeGencodeBasicV19==gene )
+if(length(proband)==1){
+ for (p in proband){
+   proband_rows<-candidates[i,paste("Dz.Model.",p,sep="")] == "REC-chet"
+  for (gene in unique(candidates$Gene.wgEncodeGencodeBasicV19[intersect(proband_rows,which(candidates$validation == "ok" ))])){
+		qindex=intersect(proband_rows,which( candidates$validation == "ok" & candidates$Gene.wgEncodeGencodeBasicV19==gene ))  #which(candidates[,paste("Dz.Model.",af,sep="")] == "REC-chet" & candidates$validation == "ok" & candidates$Gene.wgEncodeGencodeBasicV19==gene )
 		qhaplo=candidates[qindex,af];
-                for(s in uf){
+    for(s in parents){
 		   uhaplo=candidates[qindex,s];
 		   sct=0;
 		    for(k in 1:length(qhaplo)){
@@ -158,8 +174,9 @@ if(n.uf > 0){
 		      candidates$validation[qindex]="Haplotype violation"
 		   }
 		}
-	}
-	
+ }
+}
+ }
 }else{
     candidates = data.frame()
     for(i in 1:length(af.dat)) candidates = rbind(candidates,af.dat[[i]])

@@ -30,7 +30,7 @@ names(exome.raw)=c(header[-n.annos],vcf.header)
 #print(names(exome.raw))
 #print(args[2])
 maf=names(exome.raw)[grep("ExAC_ALL|mac63kFreq_ALL",names(exome.raw),ignore.case=T)[1]]
-fam<-read.table(file=fped,header=F,stringsAsFactors=F,sep="\t",skip = 1,fill = T)
+fam<-read.table(file=fped,header=F,stringsAsFactors=F,sep="\t",skip = 1,fill = T,blank.lines.skip =T )
 fam<- fam[which(fam$V2%in% names(exome.raw)),]
 if(dim(fam)[1]<1){stop("make sure individual IDs are as the same as ped file\n or at least one affected individual in ped file!\n")}
 if(length(which(fam$V6==2)) <1){stop("at least one affected individual in ped file!\n")}
@@ -42,7 +42,7 @@ father=as.character(unique(fam$V3[which(fam$V6==2 & !fam$V3 %in%empty  & fam$V3 
 mother=as.character(unique(fam$V4[which(fam$V6==2 & !fam$V4 %in% empty & fam$V4 %in% names(exome.raw))]))
 parents =c( father,mother )# ORDERED DAD THEN MOM
 if(length(parents)==0){
-  print( "Error, please use individual pipeline")
+  stop( paste(" please use individual pipeline:"," bash ",dir, "/psap/individual_psap_pipeline.sh ", "yourvcf ", fam.id," " ,fped,sep=""))
 }
 #parents = c(unique(fam$V3[which(fam$V6==2  & !fam$V3 %in%empty )]),unique(fam$V4[which(fam$V6==2 )])) # ORDERED DAD THEN MOM
 if(length(mother)==0){
@@ -62,7 +62,9 @@ if(any(grepl("cadd",names(exome.raw))) == T){
 }
 
 stopifnot(any(grepl("CADD_Phred",names(exome.raw))))
-
+for(ids in c(children,father,mother)){
+  exome.raw[,paste("Genotype",ids,sep="_")]<-exome.raw[,ids]
+}
 for(i in c(children,father,mother)){
   ids<-which(names(exome.raw)==i)
   if(length(ids)<1){next;}
@@ -103,7 +105,7 @@ af.remove = which(is.na(exome.raw[,maf]) == T & exome.raw[,"1000g2014sep_all"] >
 
 # 3) REMOVE GENES NOT IN LOOKUP TABLES
 lookup.lof = read.table(file=paste(dir,"psap/lookups/full.lof.pCADD.gencodeV19.allsites.txt.gz",sep=""),stringsAsFactors=F)
-multi_transcript_indel<-intersect(which(exome.raw$Ref=="-"|exome.raw$Alt=="-"),grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19))
+multi_transcript_indel<-grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19)
 exome.raw$Gene.wgEncodeGencodeBasicV19[multi_transcript_indel]<-unlist(lapply(multi_transcript_indel,
     FUN <-function(i){
            annoGenes<-unlist(strsplit(exome.raw$Gene.wgEncodeGencodeBasicV19[i],split = ";"));
@@ -232,7 +234,7 @@ print ("output\n")
 info<-exome[which(is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
             c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
               "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-              maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents)]
+              maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(exome)[grep("Genotype_",names(exome),ignore.case = T)])]
 
 # original version: pass filter is applied 
 # info<-exome[which(exome$FILTER=="PASS" & is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
@@ -245,7 +247,7 @@ id.raw = paste(exome.raw$Chr,exome.raw$Start,exome.raw$Ref,exome.raw$Alt,sep=":"
 id.final = paste(info$Chr,as.numeric(info$Start),info$Ref,info$Alt,sep=":")
 missing<-unique(exome.raw[which(! id.raw %in% id.final),c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19",
                                                           "Func.wgEncodeGencodeBasicV19","ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-                                                          maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents)])
+                                                          maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(exome.raw)[grep("Genotype_",names(exome.raw),ignore.case = T)])])
 
 rm(list=c("keep","exome","tmp.exome","exome.raw","af.remove","lookup.remove","bl.remove","bl","lookup.genes"))
 class(info[,score]) = "numeric"
@@ -298,7 +300,8 @@ for(m in indv.cols){
 extra_cols<-grep("Dz.Model|popScore",names(final))
 keep= c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
         "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-        maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(final)[extra_cols])
+        maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(final)[grep("Genotype_",names(final),ignore.case = T)],names(final)[extra_cols])
+keep=intersect(keep,names(final))
 final<-final[,keep]
 ## WRITE OUTPUT FOR FAMILY
 print("writing file")

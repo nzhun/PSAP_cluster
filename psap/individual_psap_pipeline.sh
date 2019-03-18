@@ -3,8 +3,9 @@
 # $1 = vcf file, $2 = output file, $3 = ped file
 #PSAP_PATH=/home/local/ARCS/nz2274/Application/ #INSERT PATH TO PSAP DIRECTORY HERE eg. /scratch/dclab/
 #ANNOVAR_PATH=/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
-ANNOVAR_PATH=$ANNOVAR #/home/local/users/jw/software_packages/annovar/ #/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
-ANNOVAR_DB=$ANNHDB #/home/local/ARCS/nz2274/Application/annovar/
+PSAP_PATH="/share/terra/nz2274/Application/PSAP_cluster/"
+ANNOVAR_PATH=/share/terra/nz2274/Application/annovar/  #$ANNOVAR #/home/local/users/jw/software_packages/annovar/ #/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
+ANNOVAR_DB=/share/data/resources/hg19/ANNOVAR_humandb/ #$ANNHDB #/home/local/ARCS/nz2274/Application/annovar/
 echo $ANNOVAR_DB
 curpath=$(pwd)
 echo $PWD
@@ -42,33 +43,48 @@ then
         fi
 
 # Extract and move to VCF file directory
-        FILE_LOC=${1%/*.vcf*} # Extract location of VCF file
-        cd $FILE_LOC # Use location of  VCF file as working directory, this is where all output will be written
+        #FILE_LOC=${1%/*.vcf*} # Extract location of VCF file
+        #cd $FILE_LOC # Use location of  VCF file as working directory, this is where all output will be written
         echo $PWD
-        VCF=${1##/*/} # Extract VCF file name
+        VCF=$1 #${1##/*/} # Extract VCF file name
         OUTFILE=$2 # Name of output file (no directory should be included here)
         PED_FILE=$3 # Name of pedigree file (directory should be included here)
+	bn_vcf=$(basename $VCF)
+	ln=$(wc $curpath/annotated/${OUTFILE}.avinput.hg19_multianno.txt -l|awk '{print $1}' )
 
-# Convert vcf file to annovar file
-if [ ! -e $curpath/annotated/${OUTFILE}.avinput.hg19_multianno.txt  ]; then    
-     echo "PROGRESS: Converting VCF file to annovar input"
-        echo "PROGRESS: Converting VCF file to annovar input"
-        perl ${ANNOVAR_PATH}convert2annovar.pl -format vcf4old $VCF -outfile ${OUTFILE}.avinput -includeinfo
-
-# Write column names from VCF file to header file (will be used later)
-        grep '#' $VCF | tail -n 1 > ${OUTFILE}.avinput.header # Extract all lines of the VCF header.  The last line of the VCF header contains coumn names - write columna names to .avinput.header file
-
-# If there is no annotated directory create annotated directory
-        if [ $(ls -d $PWD/*/ | grep -c -w "annotated") == 0 ]
+if [ $(ls -d $PWD/*/ | grep -c -w "annotated") == 0 ]
         then
                 echo "Creating directory annotated/ to store annotation and analysis output"
                 mkdir annotated
         fi
 
+
+awk 'BEGIN{FS="\t";OFS="\t"}{if($1 ~/^#/){print;next}o=0;for(i=10;i<NF+1;i++){if($i ~/[\/|\|][1-9]/){o=1}} if(o!=0){print}}' $VCF > $curpath/annotated/${bn_vcf}.filter.vcf
+# Convert vcf file to annovar file
+if [ ! -e $curpath/annotated/${OUTFILE}.avinput.hg19_multianno.txt  ] || [ $ln -lt 3 ] ; then    
+     echo "PROGRESS: Converting VCF file to annovar input"
+        echo "PROGRESS: Converting VCF file to annovar input"
+	if [ ! -e  "$curpath/annotated/${bn_vcf}.filter.vcf" ];
+	then
+		echo "Error: cannot find $curpath/annotated/${bn_vcf}.filter.vcf\n"
+		exit;
+	fi
+        perl ${ANNOVAR_PATH}convert2annovar.pl -format vcf4old $curpath/annotated/${bn_vcf}.filter.vcf -outfile annotated/${OUTFILE}.avinput -includeinfo
+
+# Write column names from VCF file to header file (will be used later)
+        grep '#' $VCF | tail -n 1 > annotated/${OUTFILE}.avinput.header # Extract all lines of the VCF header.  The last line of the VCF header contains coumn names - write columna names to .avinput.header file
+
+# If there is no annotated directory create annotated directory
+        
+
 # Annotate with ANNOVAR
 	echo "PROGRESS: Annotating data with ANNOVAR"
+	if [ !-e "$curpath/annotated/${OUTFILE}.avinput" ]; then
+		echo "cannot find $curpath/annotated/${OUTFILE}.avinput\n"
+		exit;
+	fi
 	#perl ${ANNOVAR_PATH}table_annovar.pl ${OUTFILE}.avinput -remove -outfile annotated/${OUTFILE}.avinput ${ANNOVAR_DB}humandb/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo
-	perl ${ANNOVAR_PATH}table_annovar.pl $curpath/${OUTFILE}.avinput -remove -outfile $curpath/annotated/${OUTFILE}.avinput ${ANNOVAR_DB}/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo
+	perl ${ANNOVAR_PATH}table_annovar.pl $curpath/annotated/${OUTFILE}.avinput -remove -outfile $curpath/annotated/${OUTFILE}.avinput ${ANNOVAR_DB}/ -buildver hg19 -protocol wgEncodeGencodeBasicV19,mac63kFreq_ALL,esp6500si_all,1000g2014sep_all,snp137,cadd -operation g,f,f,f,f,f -nastring NA -otherinfo -argument -separate,,,,,-otherinfo
 else 
     echo "$curpath/annotated/${OUTFILE}.avinput.hg19_multianno.txt existed!"
 fi

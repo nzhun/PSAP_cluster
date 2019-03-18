@@ -1,4 +1,10 @@
-#!/usr/bin/env bash
+#!/bin/bash
+#$ -S /bin/bash
+#$ -j y
+#$ -N PSAP
+#$ -l h_rt=12:00:00
+#$ -l h_vmem=3G
+#$ -cwd
 
 # $1 = vcf file, $2 = output file, $3 = ped file
 
@@ -7,8 +13,7 @@ PSAP_PATH="/share/terra/nz2274/Application/PSAP_cluster/"
 
 ANNOVAR_PATH=/share/terra/nz2274/Application/annovar/ #/home/nz2274/Application/annovar/   #$ANNOVAR #/home/local/users/jw/software_packages/annovar/ #/home/local/ARCS/nz2274/Application/annovar/; #/home/local/users/jw/software_packages/annovar/ #INSERT PATH TO ANNOVAR DIRECTORY HERE eg. /scratch/dclab/annovar/
 ANNOVAR_DB=/share/data/resources/hg19/ANNOVAR_humandb/ # $ANNHDB #/home/local/ARCS/nz2274/Application/annovar/
-curpath=$(pwd)
-echo $PWD
+#echo $PWD
 echo "PSAP path is "${PSAP_PATH}"psap/"
 echo "ANNOVAR PATH is "${ANNOVAR_PATH}
 #module load R
@@ -17,14 +22,43 @@ echo "Example: popScore_analysis_pipeline.sh FAM001.vcf FAM.OUTFILE FAM001.ped"
 echo "Example: popScore_analysis_pipeline.sh FAM001.vcf FAM.OUTFILE FAM001.ped"
 if [ $# -gt 0 ] && [ $1 == "-h" ]
 then
-	echo "arg1 =  VCF file"
-	echo "arg2 = output file name"
-	echo "arg3 = family pedigree file"
-	echo "Example: popScore_analysis_pipeline.sh FAM001.vcf FAM.OUTFILE FAM001.ped"
+	echo "arg1 =  configure file"
+	echo "arg2 = output folder"
+#	echo "arg3 = family pedigree file"
+	echo "Example: popScore_analysis_pipeline.sh configure_file outputFolder" 
+ 	echo "configure_file format: fvcf_fullpath\tfped_fullpath"
 	exit
 fi
+if [[ -z "${ArrNum}" ]]
+then
+    ArrNum=$SGE_TASK_ID
+fi
+echo $ArrNum
+#set local variables
+InpFil=$1
+InpFil=`readlink -f $InpFil` #resolve absolute path to bam
+INLINE=$(tail -n+$ArrNum $InpFil | head -n 1)
+fvcf=$(echo $INLINE|awk '{print $1}')
+fvcf=$(readlink -f $fvcf)
+fped=$(echo $INLINE|awk '{print $2}')
+VCF=${fvcf##/*/}
+PED_FILE=$(readlink -f $fped)
+BN=$(basename $fvcf|sed 's/vcf//g')
+OUTFILE=$BN"fam"
+DST=$pwd
+if [ $# -eq 2 ]; then
+	DST=$2
+fi
 
-if [ $# == 3 ]
+curpath=$(readlink -f $DST)  ## #$(pwd)
+echo $curpath
+#VCF=${1##/*/} # Extract VCF file name
+# 
+#        OUTFILE=$2 # Name of output file (no directory should be included here)
+#        PED_FILE=$(readlink -f $3)
+echo $fvcf"\t"$fped"\t"$OUTFILT"\t"$VCF"\t"$PED_FILE
+#exit
+if [ -e $fvcf ] && [ -e $fped ]
 then
 # Check that all required ANNOVAR annotation files are in the humandb directory
 	MISSING=0
@@ -43,19 +77,19 @@ then
 	fi
 
 # Extract and move to VCF file directory
-	FILE_LOC=${1%/*.vcf} # Extract location of VCF file
+	FILE_LOC=${fvcf%/*.vcf} # Extract location of VCF file
 	if [[ $FILE_LOC != *".vcf"* ]]
 	then
 		cd $FILE_LOC # Use location of  VCF file as working directory, this is where all output will be written
 	fi
 	echo $PWD
-	VCF=${1##/*/} # Extract VCF file name
+#	VCF=${1##/*/} # Extract VCF file name
 	echo $VCF
-	OUTFILE=$2 # Name of output file (no directory should be included here)
-	PED_FILE=$(readlink -f $3) # Name of pedigree file (directory should be included here)
+#	OUTFILE=$2 # Name of output file (no directory should be included here)
+#	PED_FILE=$(readlink -f $3) # Name of pedigree file (directory should be included here)
  
 # If there is no annotated directory create annotated directory
-        if [ $(ls -d $PWD/*/ | grep -c -w "annotated") == 0 ]
+        if [ $(ls -d $curpath/*/ | grep -c -w "annotated") == 0 ]
         then
                 echo "PROGRESS: Creating directory annotated/ to store annotation and analysis output"
                 mkdir $curpath/annotated

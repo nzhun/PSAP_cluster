@@ -5,13 +5,17 @@ adir = args[3]
 #cohort.id<-unlist(strsplit(args[1],".avinput",fixed=T))[1]
 outf=args[1]
 cohort.id<-dirname(outf)
-
-ped<-read.table(file=args[2],header=F,stringsAsFactors=F,fill=T,sep="\t")
+emp=c("X","0","-")
+ped<-read.table(file=args[2],header=F,stringsAsFactors=F,fill=T,sep="\t",blank.lines.skip= T )
 uf = ped$V2[which(ped$V6==1)]
 n.uf = length(uf)
 if(n.uf==0){
-if(nchar(ped$V3[which(ped$V6==2)])>1){uf=ped$V3[which(ped$V6==2)]}
-if(nchar(ped$V4[which(ped$V6==2)])>1){uf=c(uf,ped$V4[which(ped$V6==2)])}
+uf<-unlist(lapply(which(ped$v6==2),FUN=function(x){if(nchar(ped$V3[x]) >1){return(ped$V3)}}))
+uf<-c(uf,unlist(lapply(which(ped$v6==2),FUN=function(x){if(nchar(ped$V4[x]) >1){return(ped$V4)}})))
+print(uf)
+#if(nchar(ped$V3[which(ped$V6==2)])>1){uf=ped$V3[which(ped$V6==2)]}
+#if(nchar(ped$V4[which(ped$V6==2)])>1){uf=c(uf,ped$V4[which(ped$V6==2)])}
+#uf=uf[which(!uf %in% emp)]
 n.uf=length(uf)
 }
 af<-ped$V2[which(ped$V6==2)]
@@ -56,7 +60,8 @@ for(i in 1:length(af)){
     if(i == 1){
       af.dat[[m]] = tmp
     }else{
-      af.dat[[m]] = rbind(af.dat[[m]],tmp)
+      cnm<-intersect(names(af.dat[[m]]),names(tmp))
+      af.dat[[m]] = rbind(af.dat[[m]][,cnm],tmp[,cnm])
     }
   }
 }

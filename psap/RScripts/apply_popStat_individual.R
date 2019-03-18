@@ -7,10 +7,10 @@ adir = args[3]
 
 prefix<-args[1]
 fam.id<-dirname(args[1]) #strsplit(args[1],".avinput",fixed=T)
-ped = read.table(args[4],stringsAsFactors=F,skip = 1,header = F,sep="\t")
+ped = read.table(args[4],stringsAsFactors=F,skip = 1,header = F,sep="\t",blank.lines.skip = T)
 ## Individual ID - ASSUMES only one individual is being analyzed/annotated
 
-indv.id = args[2]
+indv.id = gsub(" ", "", args[2], fixed = TRUE)
 
 ## at some point this may be changed to an argument based system but for now it's hard coded
 score = "CADD_Phred"
@@ -18,6 +18,9 @@ scale = seq(0,70,0.05)
 print(paste(adir,"psap/lookups/lookup_genes.txt",sep=""))
 lookup.genes = scan(file=paste(adir,"psap/lookups/lookup_genes.txt",sep=""),"character")
 
+
+#lookup.lof = scan(file=paste(adir,"psap/lookups/full.lof.pCADD.gencodeV19.allsites.txt.gz",sep=""),"character")
+lookup.lof = read.table(file=paste(adir,"psap/lookups/full.lof.pCADD.gencodeV19.allsites.txt.gz",sep=""),stringsAsFactors=F)
 ## READ IN AND FORMAT DATA
 print(paste(prefix,".hg19_multianno.txt",sep=""))
 exome.raw<-read.table(file=paste(prefix,".hg19_multianno.txt",sep=""),sep="\t",comment.char="",quote="", stringsAsFactors=F,skip=1)
@@ -38,6 +41,10 @@ stopifnot(any(grepl("CADD_Phred",names(exome.raw))))
 # Extracts genotype info for specified individual
 a1 = substr(exome.raw[,indv.id],1,1)
 a2 = substr(exome.raw[,indv.id],3,3)
+for(ids in c(indv.id)){
+  exome.raw[,"RawGenotype"]<-exome.raw[,ids]
+}
+
 exome.raw[indv.id] = "NA"
 if(length(which(a1 != a2)) > 0){
   exome.raw[which(a1 != a2),indv.id] = "het"
@@ -73,9 +80,10 @@ bl.remove = unique(c(which(exome.raw$Gene.wgEncodeGencodeBasicV19 %in% bl),grep(
 af.remove = which(is.na(exome.raw[,maf]) == T & exome.raw[,"1000g2014sep_all"] > 0.05 | is.na(exome.raw[,maf]) == T & exome.raw$esp6500si_all > 0.05)
 
 # 3) REMOVE GENES NOT IN LOOKUP TABLES
-multi_transcript_indel<-intersect(which(exome.raw$Ref=="-"|exome.raw$Alt=="-"),grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19))
+multi_transcript_indel<-grep(";",exome.raw$Gene.wgEncodeGencodeBasicV19) #)intersect(which(exome.raw$Ref=="-"|exome.raw$Alt=="-"),
+print("multiple transcripts")
 exome.raw$Gene.wgEncodeGencodeBasicV19[multi_transcript_indel]<-unlist(lapply(multi_transcript_indel,
-      FUN <-function(i){
+      FUN=function(i){
           annoGenes<-unlist(strsplit(exome.raw$Gene.wgEncodeGencodeBasicV19[i],split = ";"));
           ids<-which(annoGenes%in%lookup.genes); 
           if(length(ids)>1){
@@ -86,11 +94,13 @@ exome.raw$Gene.wgEncodeGencodeBasicV19[multi_transcript_indel]<-unlist(lapply(mu
           return(annoGenes[ids])
       }
 ))
-lookup.remove = which(! exome.raw$Gene.wgEncodeGencodeBasicV19 %in% lookup.genes)
+lookup.remove = intersect(which(! exome.raw$Gene.wgEncodeGencodeBasicV19 %in% lookup.genes),multi_transcript_indel)
 
 # 4) REMOVE LINES WHERE ALL AFs ARE MISSING
 af = ped$V2[which(ped$V6 == 2)]
-af_index<-grep(af,names(exome.raw))
+print ("AF search")
+af_index<-unlist(lapply(af,FUN=function(x){return(grep(x,names(exome.raw)))}));
+print("search done")
 missing.remove = which(apply(exome.raw[af_index],1,function(row) return(sum(is.na(row)))) == length(af))
 rms<-c(bl.remove,af.remove,lookup.remove,missing.remove)
 if(length(rms) > 0){
@@ -104,7 +114,7 @@ keep<-unique(c(grep("splic",tmp.exome$Func.wgEncodeGencodeBasicV19),which(is.na(
 exome<-tmp.exome[keep,]
 
 # 4b) SCORE INDELS
-lookup.lof = read.table(file=paste(adir,"psap/lookups/full.lof.pCADD.gencodeV19.allsites.txt.gz",sep=""),stringsAsFactors=F)
+
 indels = grep("^frameshift",exome$ExonicFunc.wgEncodeGencodeBasicV19)
 gene.index = as.integer(factor(exome$Gene.wgEncodeGencodeBasicV19[indels],levels=lookup.lof[,1]))
 exome[,score][indels] = lookup.lof[gene.index,2]
@@ -113,7 +123,7 @@ exome[,score][indels] = lookup.lof[gene.index,2]
 info<-exome[which(exome$FILTER=="PASS" & is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
             c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
               "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-             maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id)]
+             maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id,"FORMAT",names(exome)[grep("RawGenotype",names(exome),ignore.case = T)])]
 
 ## OUTPUT MISSING DATA/DATA NOT INCLUDED IN ANY OF THE ABOVE ANALYSES
 id.raw = paste(exome.raw$Chr,exome.raw$Start,exome.raw$Ref,exome.raw$Alt,sep=":")
@@ -121,7 +131,7 @@ id.final = paste(info$Chr,as.numeric(info$Start),info$Ref,info$Alt,sep=":")
 missing<-unique(exome.raw[which(! id.raw %in% id.final),
   c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19",
     "Func.wgEncodeGencodeBasicV19","ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-    maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id)])
+    maf,"1000g2014sep_all","esp6500si_all","Alt",score,indv.id,"FORMAT",names(exome)[grep("RawGenotype",names(exome),ignore.case = T)])])
 
 rm(list=c("keep","exome","tmp.exome","exome.raw","af.remove","lookup.remove","bl.remove","bl","lookup.genes"))
 class(info[,score]) = "numeric"
@@ -162,6 +172,6 @@ outfile=paste(fam.id,"/",indv.id,sep="")
 print( paste(paste(outfile,"_popStat.txt",sep="")))
 write.table(write.out,file=paste(outfile,"_popStat.txt",sep=""),col.names=T,row.names=F,sep="\t",quote=F)
 
-missing.out = missing[-which(missing$Func.wgEncodeGencodeBasicV19 == "exonic" | missing$Func.wgEncodeGencodeBasicV19 == "splicing;intronic" | missing$Func.wgEncodeGencodeBasicV19 =="splicing;exonic" | missing$Func.wgEncodeGencodeBasicV19 =="exonic;splicing"),]
+missing.out = missing#[-which(missing$Func.wgEncodeGencodeBasicV19 == "exonic" | missing$Func.wgEncodeGencodeBasicV19 == "splicing;intronic" | missing$Func.wgEncodeGencodeBasicV19 =="splicing;exonic" | missing$Func.wgEncodeGencodeBasicV19 =="exonic;splicing"),]
 write.table(missing.out,file=paste(outfile,"_missing_data.txt",sep=""),sep="\t",col.names=T,row.names=F,quote=F)
 
