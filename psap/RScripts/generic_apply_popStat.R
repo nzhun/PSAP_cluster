@@ -15,11 +15,11 @@ fped=args[2]
 ## at some point this may be cahanged to an argument based system but for now it's hard coded
 score = "CADD_Phred"
 scale = seq(0,70,0.05)
-lookup.genes = scan(file=paste(dir,"psap/lookups/lookup_genes.txt",sep=""),"character")
+
 empty<-c("x","-","0","X")
 
 ## READ IN AND FORMAT DATA
-
+lookup.genes = scan(file=paste(dir,"psap/lookups/lookup_genes.txt",sep=""),"character")
 exome.raw<-read.table(file=paste(fam.id,".avinput.hg19_multianno.txt",sep=""),sep="\t",stringsAsFactors=F,skip=1,quote = "",check.names = F,skipNul = T,comment.char = "")  #"annotated/",
 
 print(paste(fam.id,".avinput.hg19_multianno.txt",sep=""))
@@ -30,7 +30,7 @@ names(exome.raw)=c(header[-n.annos],vcf.header)
 #print(names(exome.raw))
 #print(args[2])
 maf=names(exome.raw)[grep("ExAC_ALL|mac63kFreq_ALL",names(exome.raw),ignore.case=T)[1]]
-fam<-read.table(file=fped,header=F,stringsAsFactors=F,sep="\t",skip = 1,fill = T,blank.lines.skip =T )
+fam<-read.table(file=fped,header=F,stringsAsFactors=F,sep="\t",skip = 1,fill = T)
 fam<- fam[which(fam$V2%in% names(exome.raw)),]
 if(dim(fam)[1]<1){stop("make sure individual IDs are as the same as ped file\n or at least one affected individual in ped file!\n")}
 if(length(which(fam$V6==2)) <1){stop("at least one affected individual in ped file!\n")}
@@ -41,6 +41,7 @@ fam$V4[which(!fam$V4%in%empty & !fam$V4%in%names(exome.raw))]="X"
 father=as.character(unique(fam$V3[which(fam$V6==2 & !fam$V3 %in%empty  & fam$V3 %in% names(exome.raw))]))
 mother=as.character(unique(fam$V4[which(fam$V6==2 & !fam$V4 %in% empty & fam$V4 %in% names(exome.raw))]))
 parents =c( father,mother )# ORDERED DAD THEN MOM
+
 if(length(parents)==0){
   stop( paste(" please use individual pipeline:"," bash ",dir, "/psap/individual_psap_pipeline.sh ", "yourvcf ", fam.id," " ,fped,sep=""))
 }
@@ -53,7 +54,7 @@ if(length(mother)==0){
 }else{
   children = as.character(fam$V2[which(fam$V3 %in% parents & fam$V4 %in% parents)])
 }
-
+others<-fam$V2[which(!fam$V2%in%c(children,parents) & !fam$V2 %in% empty)]
 
 #write.table(fam,file = args[2],col.names = F,row.names = F,quote = T,sep = "\t")
 
@@ -62,10 +63,10 @@ if(any(grepl("cadd",names(exome.raw))) == T){
 }
 
 stopifnot(any(grepl("CADD_Phred",names(exome.raw))))
-for(ids in c(children,father,mother)){
+for(ids in c(children,father,mother,others)){
   exome.raw[,paste("Genotype",ids,sep="_")]<-exome.raw[,ids]
 }
-for(i in c(children,father,mother)){
+for(i in c(children,father,mother,others)){
   ids<-which(names(exome.raw)==i)
   if(length(ids)<1){next;}
   a1 = substr(exome.raw[,ids],1,1)
@@ -131,10 +132,10 @@ if(length(all.remove)>0){
 }
 # 4) REMOVE MENDELIAN INCONSITENCIES - IF AFs HAVE BOTH PARENTS
 autosome = data.frame(parents=c("ref,ref","ref,het","ref,hom","het,ref","het,het","het,hom","hom,ref","hom,het","hom,hom"),
-                        child=c("ref,het","ref,het","het","ref,het","ref,het,hom","het,hom","het","het,hom","hom"),
+                        child=c("ref,het,hom","ref,het","het","ref,het","ref,het,hom","het,hom","het","het,hom","hom"),
                       stringsAsFactors=F)
 male.x = data.frame(mom=c("ref","het","hom"),child=c("ref","ref,hom","hom"),stringsAsFactors=F)
-female.x = data.frame(parents=c("ref,ref","ref,het","ref,hom","hom,ref","hom,het","hom,hom"),child=c("ref","ref,het","het","het","het,hom","hom"),stringsAsFactors=F)
+female.x = data.frame(parents=c("ref,ref","ref,het","ref,hom","hom,ref","hom,het","hom,hom"),child=c("ref,het,homo","ref,het","het","het","het,hom","hom"),stringsAsFactors=F)
 male.y = data.frame(dad=c("ref","hom"),child=c("ref","hom"),stringsAsFactors=F)
 
 inconsistencies = function(row){
@@ -234,7 +235,7 @@ print ("output\n")
 info<-exome[which(is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
             c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
               "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-              maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(exome)[grep("Genotype_",names(exome),ignore.case = T)])]
+              maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,others,names(exome)[grep("Genotype_",names(exome),ignore.case = T)])]
 
 # original version: pass filter is applied 
 # info<-exome[which(exome$FILTER=="PASS" & is.na(exome[,score]) == F | exome$FILTER=="." & is.na(exome[,score]) == F),
@@ -247,7 +248,7 @@ id.raw = paste(exome.raw$Chr,exome.raw$Start,exome.raw$Ref,exome.raw$Alt,sep=":"
 id.final = paste(info$Chr,as.numeric(info$Start),info$Ref,info$Alt,sep=":")
 missing<-unique(exome.raw[which(! id.raw %in% id.final),c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19",
                                                           "Func.wgEncodeGencodeBasicV19","ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-                                                          maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(exome.raw)[grep("Genotype_",names(exome.raw),ignore.case = T)])])
+                                                          maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,others,names(exome.raw)[grep("Genotype_",names(exome.raw),ignore.case = T)])])
 
 rm(list=c("keep","exome","tmp.exome","exome.raw","af.remove","lookup.remove","bl.remove","bl","lookup.genes"))
 class(info[,score]) = "numeric"
@@ -300,7 +301,7 @@ for(m in indv.cols){
 extra_cols<-grep("Dz.Model|popScore",names(final))
 keep= c(unlist(vcf.header[1:5]),"Chr","Start","Ref","Gene.wgEncodeGencodeBasicV19","Func.wgEncodeGencodeBasicV19",
         "ExonicFunc.wgEncodeGencodeBasicV19","AAChange.wgEncodeGencodeBasicV19",
-        maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,names(final)[grep("Genotype_",names(final),ignore.case = T)],names(final)[extra_cols])
+        maf,"1000g2014sep_all","esp6500si_all","Alt",score,children,parents,others,names(final)[grep("Genotype_",names(final),ignore.case = T)],names(final)[extra_cols])
 keep=intersect(keep,names(final))
 final<-final[,keep]
 ## WRITE OUTPUT FOR FAMILY
